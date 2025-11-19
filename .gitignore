@@ -1,0 +1,18 @@
+# Logitap - Node.js / Next.js
+logitap/node_modules/
+logitap/.next/
+logitap/.env
+logitap/.env.local
+logitap/.env*.local
+logitap/*.log
+logitap/.DS_Store
+logitap/dist/
+logitap/build/
+logitap/.turbo/
+logitap/.vercel/
+
+# General
+.DS_Store
+*.log
+.env
+.env.local
