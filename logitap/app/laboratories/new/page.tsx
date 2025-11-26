@@ -3,51 +3,95 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { geocodeAddressClient } from '@/lib/geocoding';
 
 export default function NewLaboratoryPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    contactPerson: '',
-    businessType: 'laboratory',
-  });
+  const [geocoding, setGeocoding] = useState(false);
+  const [error, setError] = useState('');
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [businessType, setBusinessType] = useState('laboratory');
+
+  async function handleGeocodeAddress() {
+    if (!address || !city) {
+      alert("Ingresa dirección y ciudad primero");
+      return;
+    }
+
+    setGeocoding(true);
+
+    const coords = await geocodeAddressClient(address, city, "Venezuela");
+
+    if (coords) {
+      setCoordinates(coords);
+      alert(`✅ Coordenadas encontradas:\n${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+    } else {
+      alert("❌ No se pudieron obtener las coordenadas.\nVerifica que la dirección esté completa.");
+    }
+
+    setGeocoding(false);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     try {
-      const response = await fetch('/api/laboratories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      // Intentar geocodificar si no hay coordenadas
+      let finalCoordinates = coordinates;
+
+      if (!finalCoordinates && address && city) {
+        setGeocoding(true);
+        finalCoordinates = await geocodeAddressClient(address, city, "Venezuela");
+        setGeocoding(false);
+
+        if (finalCoordinates) {
+          setCoordinates(finalCoordinates);
+        }
+      }
+
+      if (!finalCoordinates) {
+        setError("No se pudieron obtener las coordenadas. Haz click en 'Obtener Ubicación' primero.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/laboratories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          address,
+          city,
+          contactPerson,
+          businessType,
+          latitude: finalCoordinates.lat,
+          longitude: finalCoordinates.lng,
+        }),
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        router.push('/laboratories');
-      } else {
-        alert(data.error || 'Error al crear laboratorio');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Error al crear laboratorio");
       }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error de conexión al crear laboratorio');
-    } finally {
+
+      const data = await response.json();
+      router.push(`/laboratories/${data.id}`);
+    } catch (err: any) {
+      setError(err.message);
       setLoading(false);
     }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
   };
 
   return (
@@ -60,6 +104,12 @@ export default function NewLaboratoryPage() {
           </Link>
         </div>
 
+        {error && (
+          <div className="alert alert-error" style={{ marginBottom: '20px' }}>
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="card">
             <div className="grid-2">
@@ -67,9 +117,8 @@ export default function NewLaboratoryPage() {
                 <label className="form-label">Nombre del Laboratorio *</label>
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   required
                   className="form-input"
                   placeholder="Laboratorio Farmacéutico XYZ"
@@ -80,9 +129,8 @@ export default function NewLaboratoryPage() {
                 <label className="form-label">Email *</label>
                 <input
                   type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   className="form-input"
                   placeholder="contacto@laboratorio.com"
@@ -93,12 +141,11 @@ export default function NewLaboratoryPage() {
                 <label className="form-label">Teléfono *</label>
                 <input
                   type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   required
                   className="form-input"
-                  placeholder="+56 9 1234 5678"
+                  placeholder="+58 212 1234567"
                 />
               </div>
 
@@ -106,12 +153,11 @@ export default function NewLaboratoryPage() {
                 <label className="form-label">Ciudad *</label>
                 <input
                   type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
                   required
                   className="form-input"
-                  placeholder="Santiago"
+                  placeholder="Caracas"
                 />
               </div>
 
@@ -119,9 +165,8 @@ export default function NewLaboratoryPage() {
                 <label className="form-label">Persona de Contacto</label>
                 <input
                   type="text"
-                  name="contactPerson"
-                  value={formData.contactPerson}
-                  onChange={handleChange}
+                  value={contactPerson}
+                  onChange={(e) => setContactPerson(e.target.value)}
                   className="form-input"
                   placeholder="Juan Pérez"
                 />
@@ -130,9 +175,8 @@ export default function NewLaboratoryPage() {
               <div className="form-group">
                 <label className="form-label">Tipo de Negocio *</label>
                 <select
-                  name="businessType"
-                  value={formData.businessType}
-                  onChange={handleChange}
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
                   required
                   className="form-select"
                 >
@@ -143,17 +187,40 @@ export default function NewLaboratoryPage() {
               </div>
             </div>
 
-            <div className="form-group">
+            <div className="form-group" style={{ gridColumn: "span 2" }}>
               <label className="form-label">Dirección *</label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-                className="form-input"
-                placeholder="Av. Libertador Bernardo O'Higgins 1234"
-              />
+              <div style={{ display: "flex", gap: "12px", alignItems: "start" }}>
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                    className="form-input"
+                    placeholder="Ej: Av. Bolívar con Calle 5, Edificio Torre, Local 3"
+                    style={{ margin: 0 }}
+                  />
+                  {coordinates && (
+                    <p style={{ fontSize: "13px", color: "#10b981", marginTop: "6px", margin: "6px 0 0 0" }}>
+                      ✅ Ubicación confirmada: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                    </p>
+                  )}
+                  {!coordinates && address && city && (
+                    <p style={{ fontSize: "13px", color: "#f59e0b", marginTop: "6px", margin: "6px 0 0 0" }}>
+                      ⚠️ Haz click en "Obtener Ubicación" para geocodificar
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGeocodeAddress}
+                  disabled={geocoding || !address || !city}
+                  className="btn btn-primary"
+                  style={{ whiteSpace: "nowrap", alignSelf: "flex-start" }}
+                >
+                  {geocoding ? "🔍 Buscando..." : "📍 Obtener Ubicación"}
+                </button>
+              </div>
             </div>
           </div>
 

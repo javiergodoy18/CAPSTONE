@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Badge from '../components/Badge';
+import SearchBar from '../components/SearchBar';
+import styles from './Drivers.module.css';
 
 interface Driver {
   id: string;
@@ -10,243 +16,216 @@ interface Driver {
   phone: string;
   license: string;
   status: string;
+  _count?: {
+    dispatches: number;
+  };
 }
 
 export default function DriversPage() {
+  const router = useRouter();
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [filteredDrivers, setFilteredDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchDrivers();
+    loadDrivers();
   }, []);
 
-  const fetchDrivers = async () => {
+  useEffect(() => {
+    filterDrivers();
+  }, [drivers, searchQuery]);
+
+  const loadDrivers = async () => {
     try {
       const response = await fetch('/api/drivers');
       const data = await response.json();
       setDrivers(data);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading drivers:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteDriver = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este conductor?')) return;
+  const filterDrivers = () => {
+    let filtered = [...drivers];
+
+    if (searchQuery) {
+      filtered = filtered.filter((driver) =>
+        driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        driver.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        driver.license.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredDrivers(filtered);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este conductor?')) {
+      return;
+    }
 
     try {
-      await fetch(`/api/drivers/${id}`, { method: 'DELETE' });
-      fetchDrivers();
+      const response = await fetch(`/api/drivers/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar');
+      }
+
+      loadDrivers();
     } catch (error) {
       console.error('Error:', error);
+      alert('Error al eliminar el conductor');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      available: '#10b981',
-      busy: '#3b82f6',
-      inactive: '#6b7280',
-    };
-    return colors[status] || '#6b7280';
+  const statusLabels: Record<string, string> = {
+    available: 'Disponible',
+    busy: 'Ocupado',
+    inactive: 'Inactivo',
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      available: 'Disponible',
-      busy: 'Ocupado',
-      inactive: 'Inactivo',
-    };
-    return labels[status] || status;
+  const statusVariants: Record<string, 'success' | 'danger' | 'warning'> = {
+    available: 'success',
+    busy: 'warning',
+    inactive: 'danger',
   };
-
-  const filteredDrivers = drivers.filter(
-    (d) => filter === 'all' || d.status === filter
-  );
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-        <div style={{ fontSize: '1.25rem', color: '#6b7280' }}>Cargando...</div>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          <p className={styles.loadingText}>Cargando conductores...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '2rem' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>Gestión de Conductores</h1>
-          <Link
-            href="/drivers/new"
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontWeight: '500',
-              fontSize: '1rem',
-              display: 'inline-block'
-            }}
-          >
-            + Nuevo Conductor
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleIcon}>👤</span>
+              Gestión de Conductores
+            </h1>
+            <p className={styles.subtitle}>
+              {filteredDrivers.length} {filteredDrivers.length === 1 ? 'conductor' : 'conductores'} en la plantilla
+            </p>
+          </div>
+          <Link href="/drivers/new">
+            <Button size="lg" glow icon={<span>+</span>}>
+              Nuevo Conductor
+            </Button>
           </Link>
         </div>
 
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setFilter('all')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'all' ? '#2563eb' : '#e5e7eb',
-              color: filter === 'all' ? 'white' : '#374151',
-            }}
-          >
-            Todos ({drivers.length})
-          </button>
-          <button
-            onClick={() => setFilter('available')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'available' ? '#10b981' : '#e5e7eb',
-              color: filter === 'available' ? 'white' : '#374151',
-            }}
-          >
-            Disponibles
-          </button>
-          <button
-            onClick={() => setFilter('busy')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'busy' ? '#3b82f6' : '#e5e7eb',
-              color: filter === 'busy' ? 'white' : '#374151',
-            }}
-          >
-            Ocupados
-          </button>
-          <button
-            onClick={() => setFilter('inactive')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'inactive' ? '#6b7280' : '#e5e7eb',
-              color: filter === 'inactive' ? 'white' : '#374151',
-            }}
-          >
-            Inactivos
-          </button>
-        </div>
-
-        {/* Table */}
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  NOMBRE
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  EMAIL
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  TELÉFONO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  LICENCIA
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ESTADO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDrivers.map((driver) => (
-                <tr key={driver.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '1rem 1.5rem', fontWeight: '600', color: '#111827', fontSize: '0.875rem' }}>
-                    {driver.name}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {driver.email}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {driver.phone}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {driver.license}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem' }}>
-                    <span
-                      style={{
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        backgroundColor: getStatusColor(driver.status) + '20',
-                        color: getStatusColor(driver.status),
-                      }}
-                    >
-                      {getStatusLabel(driver.status)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
-                    <Link
-                      href={`/drivers/${driver.id}`}
-                      style={{ color: '#2563eb', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/drivers/${driver.id}/edit`}
-                      style={{ color: '#10b981', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => deleteDriver(driver.id)}
-                      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredDrivers.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280', fontSize: '0.875rem' }}>
-              No hay conductores registrados
-            </div>
-          )}
+        {/* Search */}
+        <div className={styles.filters}>
+          <SearchBar
+            placeholder="Buscar por nombre, email o licencia..."
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
+
+      {/* Drivers Grid */}
+      {filteredDrivers.length === 0 ? (
+        <Card variant="glass" padding="lg">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>👤</div>
+            <h3 className={styles.emptyTitle}>No hay conductores</h3>
+            <p className={styles.emptyDescription}>
+              {searchQuery
+                ? 'No se encontraron conductores con los filtros aplicados'
+                : 'Comienza agregando tu primer conductor'}
+            </p>
+            {!searchQuery && (
+              <Link href="/drivers/new">
+                <Button icon={<span>+</span>}>Agregar Primer Conductor</Button>
+              </Link>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className={styles.grid}>
+          {filteredDrivers.map((driver, index) => (
+            <Card
+              key={driver.id}
+              hover
+              padding="lg"
+              className={styles.driverCard}
+            >
+              {/* Card Header */}
+              <div className={styles.cardHeader}>
+                <div className={styles.driverAvatar}>
+                  <span className={styles.avatarIcon}>👤</span>
+                </div>
+                <Badge variant={statusVariants[driver.status]} dot>
+                  {statusLabels[driver.status]}
+                </Badge>
+              </div>
+
+              {/* Card Content */}
+              <div className={styles.cardContent}>
+                <h3 className={styles.driverName}>{driver.name}</h3>
+
+                <div className={styles.driverInfo}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📧</span>
+                    <span className={styles.infoText}>{driver.email}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📱</span>
+                    <span className={styles.infoText}>{driver.phone}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>🪪</span>
+                    <span className={styles.infoText}>{driver.license}</span>
+                  </div>
+                </div>
+
+                {driver._count && (
+                  <div className={styles.driverStats}>
+                    <div className={styles.statBadge}>
+                      <span className={styles.statValue}>{driver._count.dispatches}</span>
+                      <span className={styles.statLabel}>viajes</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card Actions */}
+              <div className={styles.cardActions}>
+                <Link href={`/drivers/${driver.id}/edit`} className={styles.actionLink}>
+                  <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
+                    Editar
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<span>🗑️</span>}
+                  fullWidth
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(driver.id);
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

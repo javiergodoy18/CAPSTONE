@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Badge from '../components/Badge';
+import SearchBar from '../components/SearchBar';
+import styles from './Laboratories.module.css';
 
 interface Laboratory {
   id: string;
@@ -11,141 +17,217 @@ interface Laboratory {
   address: string;
   city: string;
   contactPerson?: string;
-  businessType: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  _count?: {
+    pickups: number;
+  };
 }
 
 export default function LaboratoriesPage() {
+  const router = useRouter();
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
+  const [filteredLaboratories, setFilteredLaboratories] = useState<Laboratory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchLaboratories();
+    loadLaboratories();
   }, []);
 
-  const fetchLaboratories = async () => {
+  useEffect(() => {
+    filterLaboratories();
+  }, [laboratories, searchQuery]);
+
+  const loadLaboratories = async () => {
     try {
       const response = await fetch('/api/laboratories');
       const data = await response.json();
-      setLaboratories(Array.isArray(data) ? data : []);
+      setLaboratories(data);
     } catch (error) {
-      console.error('Error:', error);
-      setLaboratories([]);
+      console.error('Error loading laboratories:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteLaboratory = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este laboratorio?')) return;
+  const filterLaboratories = () => {
+    let filtered = [...laboratories];
+
+    if (searchQuery) {
+      filtered = filtered.filter((lab) =>
+        lab.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lab.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        lab.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (lab.contactPerson && lab.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    setFilteredLaboratories(filtered);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este laboratorio?')) {
+      return;
+    }
 
     try {
-      await fetch(`/api/laboratories/${id}`, { method: 'DELETE' });
-      fetchLaboratories();
+      const response = await fetch(`/api/laboratories/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar');
+      }
+
+      loadLaboratories();
     } catch (error) {
       console.error('Error:', error);
+      alert('Error al eliminar el laboratorio');
     }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-        <div style={{ fontSize: '1.25rem', color: '#6b7280' }}>Cargando...</div>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          <p className={styles.loadingText}>Cargando laboratorios...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '2rem' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>Gestión de Laboratorios</h1>
-          <Link
-            href="/laboratories/new"
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontWeight: '500',
-              fontSize: '1rem',
-              display: 'inline-block'
-            }}
-          >
-            + Nuevo Laboratorio
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleIcon}>🏥</span>
+              Gestión de Laboratorios
+            </h1>
+            <p className={styles.subtitle}>
+              {filteredLaboratories.length} {filteredLaboratories.length === 1 ? 'laboratorio' : 'laboratorios'} registrados
+            </p>
+          </div>
+          <Link href="/laboratories/new">
+            <Button size="lg" glow icon={<span>+</span>}>
+              Nuevo Laboratorio
+            </Button>
           </Link>
         </div>
 
-        {/* Table */}
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  NOMBRE
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  EMAIL
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  TELÉFONO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  CIUDAD
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {laboratories.map((laboratory) => (
-                <tr key={laboratory.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '1rem 1.5rem', fontWeight: '600', color: '#111827', fontSize: '0.875rem' }}>
-                    {laboratory.name}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {laboratory.email}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {laboratory.phone}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {laboratory.city}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
-                    <Link
-                      href={`/laboratories/${laboratory.id}`}
-                      style={{ color: '#2563eb', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/laboratories/${laboratory.id}/edit`}
-                      style={{ color: '#10b981', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => deleteLaboratory(laboratory.id)}
-                      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {laboratories.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280', fontSize: '0.875rem' }}>
-              No hay laboratorios registrados
-            </div>
-          )}
+        {/* Search */}
+        <div className={styles.filters}>
+          <SearchBar
+            placeholder="Buscar por nombre, email, ciudad o contacto..."
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
+
+      {/* Laboratories Grid */}
+      {filteredLaboratories.length === 0 ? (
+        <Card variant="glass" padding="lg">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>🏥</div>
+            <h3 className={styles.emptyTitle}>No hay laboratorios</h3>
+            <p className={styles.emptyDescription}>
+              {searchQuery
+                ? 'No se encontraron laboratorios con los filtros aplicados'
+                : 'Comienza agregando tu primer laboratorio'}
+            </p>
+            {!searchQuery && (
+              <Link href="/laboratories/new">
+                <Button icon={<span>+</span>}>Agregar Primer Laboratorio</Button>
+              </Link>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className={styles.grid}>
+          {filteredLaboratories.map((laboratory) => (
+            <Card
+              key={laboratory.id}
+              hover
+              padding="lg"
+              className={styles.laboratoryCard}
+            >
+              {/* Card Header */}
+              <div className={styles.cardHeader}>
+                <div className={styles.laboratoryIcon}>
+                  <span className={styles.icon}>🏥</span>
+                </div>
+                {(laboratory.latitude && laboratory.longitude) && (
+                  <Badge variant="success" size="sm" dot>
+                    Geolocalizado
+                  </Badge>
+                )}
+              </div>
+
+              {/* Card Content */}
+              <div className={styles.cardContent}>
+                <h3 className={styles.laboratoryName}>{laboratory.name}</h3>
+
+                <div className={styles.laboratoryInfo}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📍</span>
+                    <span className={styles.infoText}>
+                      {laboratory.address}, {laboratory.city}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📧</span>
+                    <span className={styles.infoText}>{laboratory.email}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📱</span>
+                    <span className={styles.infoText}>{laboratory.phone}</span>
+                  </div>
+                  {laboratory.contactPerson && (
+                    <div className={styles.infoItem}>
+                      <span className={styles.infoIcon}>👤</span>
+                      <span className={styles.infoText}>{laboratory.contactPerson}</span>
+                    </div>
+                  )}
+                </div>
+
+                {laboratory._count && (
+                  <div className={styles.laboratoryStats}>
+                    <div className={styles.statBadge}>
+                      <span className={styles.statValue}>{laboratory._count.pickups}</span>
+                      <span className={styles.statLabel}>pickups</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card Actions */}
+              <div className={styles.cardActions}>
+                <Link href={`/laboratories/${laboratory.id}/edit`} className={styles.actionLink}>
+                  <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
+                    Editar
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<span>🗑️</span>}
+                  fullWidth
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(laboratory.id);
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

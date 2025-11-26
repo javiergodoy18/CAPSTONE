@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { geocodeAddressClient } from "@/lib/geocoding";
 
 export default function EditPharmacyPage({
   params,
@@ -12,7 +13,9 @@ export default function EditPharmacyPage({
   const [id, setId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const [error, setError] = useState("");
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,11 +44,36 @@ export default function EditPharmacyPage({
       setCity(data.city);
       setContactPerson(data.contactPerson || "");
 
+      // Cargar coordenadas existentes
+      if (data.latitude && data.longitude) {
+        setCoordinates({ lat: data.latitude, lng: data.longitude });
+      }
+
       setLoading(false);
     } catch (err: any) {
       setError(err.message);
       setLoading(false);
     }
+  }
+
+  async function handleGeocodeAddress() {
+    if (!address || !city) {
+      alert("Ingresa dirección y ciudad primero");
+      return;
+    }
+
+    setGeocoding(true);
+
+    const coords = await geocodeAddressClient(address, city, "Venezuela");
+
+    if (coords) {
+      setCoordinates(coords);
+      alert(`✅ Coordenadas encontradas:\n${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+    } else {
+      alert("❌ No se pudieron obtener las coordenadas.\nVerifica que la dirección esté completa.");
+    }
+
+    setGeocoding(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -64,12 +92,23 @@ export default function EditPharmacyPage({
           address,
           city,
           contactPerson,
+          latitude: coordinates?.lat,
+          longitude: coordinates?.lng,
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.error || "Error al actualizar farmacia");
+      }
+
+      // Actualizar coordenadas en viajes activos
+      try {
+        await fetch(`/api/pharmacies/${id}/update-dispatch-coordinates`, {
+          method: "POST",
+        });
+      } catch (error) {
+        console.log("No se pudieron actualizar viajes automáticamente");
       }
 
       router.push(`/pharmacies/${id}`);
@@ -139,15 +178,40 @@ export default function EditPharmacyPage({
                 />
               </div>
 
-              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+              <div className="form-group" style={{ gridColumn: "span 2" }}>
                 <label className="form-label">Dirección *</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  required
-                  className="form-input"
-                />
+                <div style={{ display: "flex", gap: "12px", alignItems: "start" }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => setAddress(e.target.value)}
+                      required
+                      className="form-input"
+                      placeholder="Ej: Av. Bolívar con Calle 5, Edificio Torre, Local 3"
+                      style={{ margin: 0 }}
+                    />
+                    {coordinates && (
+                      <p style={{ fontSize: "13px", color: "#10b981", marginTop: "6px", margin: "6px 0 0 0" }}>
+                        ✅ Ubicación confirmada: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)}
+                      </p>
+                    )}
+                    {!coordinates && address && city && (
+                      <p style={{ fontSize: "13px", color: "#f59e0b", marginTop: "6px", margin: "6px 0 0 0" }}>
+                        ⚠️ Haz click en "Obtener Ubicación" para geocodificar
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGeocodeAddress}
+                    disabled={geocoding || !address || !city}
+                    className="btn btn-primary"
+                    style={{ whiteSpace: "nowrap", alignSelf: "flex-start" }}
+                  >
+                    {geocoding ? "🔍 Buscando..." : "📍 Obtener Ubicación"}
+                  </button>
+                </div>
               </div>
 
               <div className="form-group" style={{ gridColumn: 'span 2' }}>

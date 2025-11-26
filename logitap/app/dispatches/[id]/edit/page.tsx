@@ -1,395 +1,605 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import FormField from '@/app/components/FormField';
+import Input from '@/app/components/Input';
+import Select from '@/app/components/Select';
+import Button from '@/app/components/Button';
+import styles from '../../new/NewDispatch.module.css';
 
-interface Laboratory {
-  id: string;
-  name: string;
+interface Delivery {
+  id?: string;
+  pharmacyId: string;
+  invoiceNumber: string;
+  merchandiseValue: number;
+  productType: 'farmaceutico' | 'cosmetico' | 'alimentos' | 'otro';
+  deliveryDate?: string;
+  deliveryAddress?: string;
 }
 
-interface Pharmacy {
-  id: string;
-  name: string;
+interface Pickup {
+  id?: string;
+  laboratoryId: string;
+  pickupAddress: string;
+  pickupDate: string;
+  deliveries: Delivery[];
 }
 
-export default function EditDispatchPage({ params }: { params: Promise<{ id: string }> }) {
-  const resolvedParams = React.use(params);
+interface FormData {
+  vehicleId: string;
+  driverId: string;
+  scheduledStartDate: string;
+  scheduledEndDate: string;
+  estimatedDistance: number;
+  estimatedDuration: number;
+  notes: string;
+  pickups: Pickup[];
+}
+
+export default function EditDispatch() {
+  const params = useParams();
   const router = useRouter();
-  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
-  const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const dispatchId = params?.id as string;
+
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    laboratoryId: '',
-    pharmacyId: '',
-    productType: '',
-    weight: '',
-    units: '',
-    distance: '',
-    estimatedCost: '',
-    status: 'pending',
-    priority: 'normal',
-    pickupDate: '',
-    deliveryDate: '',
-    pickupNotes: '',
-    deliveryNotes: '',
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [laboratories, setLaboratories] = useState<any[]>([]);
+  const [pharmacies, setPharmacies] = useState<any[]>([]);
+
+  const [formData, setFormData] = useState<FormData>({
+    vehicleId: '',
+    driverId: '',
+    scheduledStartDate: '',
+    scheduledEndDate: '',
+    estimatedDistance: 0,
+    estimatedDuration: 0,
+    notes: '',
+    pickups: [],
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const fetchData = async () => {
+  useEffect(() => {
+    loadData();
+  }, [dispatchId]);
+
+  async function loadData() {
     try {
-      const [dispatchRes, labsRes, pharmsRes] = await Promise.all([
-        fetch(`/api/dispatches/${resolvedParams.id}`),
+      setLoading(true);
+
+      // Load dispatch data
+      const dispatchRes = await fetch(`/api/dispatches/${dispatchId}`);
+      if (!dispatchRes.ok) throw new Error('Error al cargar el viaje');
+      const dispatch = await dispatchRes.json();
+
+      // Load reference data
+      const [vehiclesRes, driversRes, labsRes, pharmsRes] = await Promise.all([
+        fetch('/api/vehicles'),
+        fetch('/api/drivers'),
         fetch('/api/laboratories'),
         fetch('/api/pharmacies'),
       ]);
 
-      if (!dispatchRes.ok) {
-        alert('despacho no encontrado');
-        router.push('/dispatches');
-        return;
-      }
+      const [vehiclesData, driversData, labsData, pharmsData] = await Promise.all([
+        vehiclesRes.json(),
+        driversRes.json(),
+        labsRes.json(),
+        pharmsRes.json(),
+      ]);
 
-      const dispatch = await dispatchRes.json();
-      const labs = await labsRes.json();
-      const pharms = await pharmsRes.json();
+      setVehicles(vehiclesData);
+      setDrivers(driversData);
+      setLaboratories(labsData);
+      setPharmacies(pharmsData);
 
-      setLaboratories(labs);
-      setPharmacies(pharms);
+      // Transform dispatch data to form format
+      const pickups = dispatch.pickups?.map((pickup: any) => ({
+        id: pickup.id,
+        laboratoryId: pickup.laboratoryId,
+        pickupAddress: pickup.pickupAddress || '',
+        pickupDate: pickup.pickupDate ? new Date(pickup.pickupDate).toISOString().slice(0, 16) : '',
+        deliveries: pickup.deliveries?.map((delivery: any) => ({
+          id: delivery.id,
+          pharmacyId: delivery.pharmacyId,
+          invoiceNumber: delivery.invoiceNumber || '',
+          merchandiseValue: delivery.merchandiseValue || 0,
+          productType: delivery.productType || 'farmaceutico',
+          deliveryDate: delivery.deliveryDate ? new Date(delivery.deliveryDate).toISOString().slice(0, 16) : '',
+          deliveryAddress: delivery.deliveryAddress || '',
+        })) || [],
+      })) || [];
 
       setFormData({
-        laboratoryId: dispatch.laboratoryId,
-        pharmacyId: dispatch.pharmacyId,
-        productType: dispatch.productType,
-        weight: dispatch.weight.toString(),
-        units: dispatch.units?.toString() || '',
-        distance: dispatch.distance?.toString() || '',
-        estimatedCost: dispatch.estimatedCost?.toString() || '',
-        status: dispatch.status,
-        priority: dispatch.priority,
-        pickupDate: dispatch.pickupDate ? new Date(dispatch.pickupDate).toISOString().slice(0, 16) : '',
-        deliveryDate: dispatch.deliveryDate ? new Date(dispatch.deliveryDate).toISOString().slice(0, 16) : '',
-        pickupNotes: dispatch.pickupNotes || '',
-        deliveryNotes: dispatch.deliveryNotes || '',
+        vehicleId: dispatch.vehicleId || '',
+        driverId: dispatch.driverId || '',
+        scheduledStartDate: dispatch.scheduledStartDate ? new Date(dispatch.scheduledStartDate).toISOString().slice(0, 16) : '',
+        scheduledEndDate: dispatch.scheduledEndDate ? new Date(dispatch.scheduledEndDate).toISOString().slice(0, 16) : '',
+        estimatedDistance: dispatch.estimatedDistance || 0,
+        estimatedDuration: dispatch.estimatedDuration || 0,
+        notes: dispatch.notes || '',
+        pickups,
       });
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error al cargar datos');
+    } catch (err) {
+      console.error('Error loading dispatch:', err);
+      setError('Error al cargar los datos del viaje');
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-
-    try {
-      const payload: any = {
-        laboratoryId: formData.laboratoryId,
-        pharmacyId: formData.pharmacyId,
-        productType: formData.productType,
-        weight: parseFloat(formData.weight),
-        status: formData.status,
-        priority: formData.priority,
-        pickupDate: formData.pickupDate,
-      };
-
-      if (formData.units) payload.units = parseInt(formData.units);
-      if (formData.distance) payload.distance = parseFloat(formData.distance);
-      if (formData.estimatedCost) payload.estimatedCost = parseFloat(formData.estimatedCost);
-      if (formData.deliveryDate) payload.deliveryDate = formData.deliveryDate;
-      if (formData.pickupNotes) payload.pickupNotes = formData.pickupNotes;
-      if (formData.deliveryNotes) payload.deliveryNotes = formData.deliveryNotes;
-
-      const response = await fetch(`/api/dispatches/${resolvedParams.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        router.push(`/dispatches/${resolvedParams.id}`);
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Error al actualizar despacho');
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error al actualizar despacho');
-    } finally {
-      setSaving(false);
+  function updateFormData(field: string, value: any) {
+    setFormData({ ...formData, [field]: value });
+    if (errors[field]) {
+      setErrors({ ...errors, [field]: '' });
     }
-  };
+  }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  function updatePickup(index: number, field: string, value: any) {
+    const updated = [...formData.pickups];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData({ ...formData, pickups: updated });
+  }
+
+  function updateDelivery(pickupIndex: number, deliveryIndex: number, field: string, value: any) {
+    const updated = [...formData.pickups];
+    updated[pickupIndex].deliveries[deliveryIndex] = {
+      ...updated[pickupIndex].deliveries[deliveryIndex],
+      [field]: value,
+    };
+    setFormData({ ...formData, pickups: updated });
+  }
+
+  function addPickup() {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value,
+      pickups: [
+        ...formData.pickups,
+        {
+          laboratoryId: '',
+          pickupAddress: '',
+          pickupDate: formData.scheduledStartDate,
+          deliveries: [],
+        },
+      ],
     });
-  };
+  }
+
+  function removePickup(index: number) {
+    const updated = formData.pickups.filter((_, i) => i !== index);
+    setFormData({ ...formData, pickups: updated });
+  }
+
+  function addDelivery(pickupIndex: number) {
+    const updated = [...formData.pickups];
+    updated[pickupIndex].deliveries.push({
+      pharmacyId: '',
+      invoiceNumber: '',
+      merchandiseValue: 0,
+      productType: 'farmaceutico',
+    });
+    setFormData({ ...formData, pickups: updated });
+  }
+
+  function removeDelivery(pickupIndex: number, deliveryIndex: number) {
+    const updated = [...formData.pickups];
+    updated[pickupIndex].deliveries = updated[pickupIndex].deliveries.filter((_, i) => i !== deliveryIndex);
+    setFormData({ ...formData, pickups: updated });
+  }
+
+  function validateForm(): boolean {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.vehicleId) newErrors.vehicleId = 'Seleccione un vehículo';
+    if (!formData.driverId) newErrors.driverId = 'Seleccione un conductor';
+    if (!formData.scheduledStartDate) newErrors.scheduledStartDate = 'Ingrese fecha de inicio';
+    if (!formData.scheduledEndDate) newErrors.scheduledEndDate = 'Ingrese fecha de fin';
+
+    if (formData.pickups.length === 0) {
+      newErrors.pickups = 'Debe agregar al menos una recolección';
+    } else {
+      formData.pickups.forEach((pickup, pIndex) => {
+        if (!pickup.laboratoryId) {
+          newErrors[`pickup_${pIndex}_lab`] = 'Seleccione un laboratorio';
+        }
+        if (pickup.deliveries.length === 0) {
+          newErrors[`pickup_${pIndex}_deliveries`] = 'Debe agregar al menos una entrega';
+        } else {
+          pickup.deliveries.forEach((delivery, dIndex) => {
+            if (!delivery.pharmacyId) {
+              newErrors[`delivery_${pIndex}_${dIndex}_pharmacy`] = 'Seleccione una farmacia';
+            }
+          });
+        }
+      });
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      setError('Por favor complete todos los campos requeridos');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError(null);
+
+      const response = await fetch(`/api/dispatches/${dispatchId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar el viaje');
+      }
+
+      router.push('/dispatches');
+    } catch (err: any) {
+      console.error('Error updating dispatch:', err);
+      setError(err.message || 'Error al actualizar el viaje');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <div style={{ fontSize: '1.25rem' }}>Cargando...</div>
+      <div className={styles.container}>
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <p style={{ fontSize: '1.2rem', color: 'var(--color-text-secondary)' }}>
+            Cargando datos del viaje...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem', backgroundColor: '#f9fafb', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>Editar despacho</h1>
-        <Link
-          href={`/dispatches/${resolvedParams.id}`}
-          style={{ color: '#4b5563', textDecoration: 'none', fontSize: '1rem' }}
-        >
-          ← Volver
-        </Link>
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <button className={styles.backButton} onClick={() => router.push('/dispatches')}>
+          ← Volver a Viajes
+        </button>
+        <h1 className={styles.title}>
+          <span className={styles.titleIcon}>✏️</span>
+          Editar Viaje
+        </h1>
+        <p className={styles.subtitle}>
+          Modifique la información del viaje, recolecciones y entregas
+        </p>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.5rem' }}>
-          {/* Laboratorio */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Laboratorio (Origen) *
-            </label>
-            <select
-              name="laboratoryId"
-              value={formData.laboratoryId}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            >
-              <option value="">Seleccionar laboratorio</option>
-              {laboratories.map(lab => (
-                <option key={lab.id} value={lab.id}>{lab.name}</option>
-              ))}
-            </select>
+      <form className={styles.form} onSubmit={handleSubmit}>
+        {/* Basic Information */}
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>
+            <span className={styles.sectionIcon}>📋</span>
+            Información Básica
+          </h2>
+
+          <div className={styles.formGrid}>
+            <FormField label="Vehículo" required error={errors.vehicleId}>
+              <Select
+                icon="🚗"
+                value={formData.vehicleId}
+                onChange={(e) => updateFormData('vehicleId', e.target.value)}
+                error={!!errors.vehicleId}
+                options={[
+                  { value: '', label: 'Seleccione un vehículo' },
+                  ...vehicles.map((v) => ({
+                    value: v.id,
+                    label: `${v.plate} - ${v.brand} ${v.model}`,
+                  })),
+                ]}
+              />
+            </FormField>
+
+            <FormField label="Conductor" required error={errors.driverId}>
+              <Select
+                icon="👤"
+                value={formData.driverId}
+                onChange={(e) => updateFormData('driverId', e.target.value)}
+                error={!!errors.driverId}
+                options={[
+                  { value: '', label: 'Seleccione un conductor' },
+                  ...drivers.map((d) => ({
+                    value: d.id,
+                    label: `${d.firstName} ${d.lastName}`,
+                  })),
+                ]}
+              />
+            </FormField>
           </div>
 
-          {/* Farmacia */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Farmacia (Destino) *
-            </label>
-            <select
-              name="pharmacyId"
-              value={formData.pharmacyId}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            >
-              <option value="">Seleccionar farmacia</option>
-              {pharmacies.map(pharm => (
-                <option key={pharm.id} value={pharm.id}>{pharm.name}</option>
-              ))}
-            </select>
+          <div className={styles.dateGrid}>
+            <FormField label="Inicio Programado" required error={errors.scheduledStartDate}>
+              <Input
+                icon="📅"
+                type="datetime-local"
+                value={formData.scheduledStartDate}
+                onChange={(e) => updateFormData('scheduledStartDate', e.target.value)}
+                error={!!errors.scheduledStartDate}
+              />
+            </FormField>
+
+            <FormField label="Fin Programado" required error={errors.scheduledEndDate}>
+              <Input
+                icon="📅"
+                type="datetime-local"
+                value={formData.scheduledEndDate}
+                onChange={(e) => updateFormData('scheduledEndDate', e.target.value)}
+                error={!!errors.scheduledEndDate}
+              />
+            </FormField>
+
+            <FormField label="Distancia (km)" hint="Estimada">
+              <Input
+                icon="📏"
+                type="number"
+                step="0.1"
+                value={formData.estimatedDistance}
+                onChange={(e) => updateFormData('estimatedDistance', parseFloat(e.target.value) || 0)}
+              />
+            </FormField>
+
+            <FormField label="Duración (min)" hint="Estimada">
+              <Input
+                icon="⏱️"
+                type="number"
+                value={formData.estimatedDuration}
+                onChange={(e) => updateFormData('estimatedDuration', parseInt(e.target.value) || 0)}
+              />
+            </FormField>
           </div>
 
-          {/* Tipo de Producto */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Tipo de Producto *
-            </label>
-            <select
-              name="productType"
-              value={formData.productType}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            >
-              <option value="">Seleccionar tipo</option>
-              <option value="Medicamentos">Medicamentos</option>
-              <option value="Insumos Agrícolas">Insumos Agrícolas</option>
-              <option value="Ambos">Ambos</option>
-            </select>
-          </div>
-
-          {/* Peso */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Peso (kg) *
-            </label>
-            <input
-              type="number"
-              name="weight"
-              value={formData.weight}
-              onChange={handleChange}
-              required
-              min="0.01"
-              step="0.01"
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
+          <FormField label="Notas" hint="Información adicional opcional">
+            <textarea
+              className={styles.textarea}
+              rows={3}
+              placeholder="Instrucciones especiales, observaciones, etc."
+              value={formData.notes}
+              onChange={(e) => updateFormData('notes', e.target.value)}
             />
+          </FormField>
+        </section>
+
+        <div className={styles.divider} />
+
+        {/* Pickups */}
+        <section className={styles.section}>
+          <div className={styles.sectionHeader}>
+            <h2 className={styles.sectionTitle}>
+              <span className={styles.sectionIcon}>📦</span>
+              Recolecciones
+            </h2>
+            <Button type="button" variant="primary" size="sm" onClick={addPickup}>
+              + Agregar Recolección
+            </Button>
           </div>
 
-          {/* Unidades */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Unidades
-            </label>
-            <input
-              type="number"
-              name="units"
-              value={formData.units}
-              onChange={handleChange}
-              min="1"
-              step="1"
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            />
+          {errors.pickups && <p className={styles.errorMessage}>{errors.pickups}</p>}
+
+          {formData.pickups.length === 0 ? (
+            <div className={styles.emptyPickups}>
+              <p>No hay recolecciones agregadas</p>
+              <p style={{ fontSize: '0.9rem' }}>Haga clic en "Agregar Recolección" para comenzar</p>
+            </div>
+          ) : (
+            <div className={styles.pickupsList}>
+              {formData.pickups.map((pickup, pIndex) => {
+                const selectedLab = laboratories.find((l) => l.id === pickup.laboratoryId);
+
+                return (
+                  <div key={pIndex} className={styles.pickupCard}>
+                    <div className={styles.pickupHeader}>
+                      <h3 className={styles.pickupTitle}>Recolección #{pIndex + 1}</h3>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        onClick={() => removePickup(pIndex)}
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+
+                    <div className={styles.formGrid}>
+                      <FormField
+                        label="Laboratorio"
+                        required
+                        error={errors[`pickup_${pIndex}_lab`]}
+                      >
+                        <Select
+                          icon="🏭"
+                          value={pickup.laboratoryId}
+                          onChange={(e) => {
+                            updatePickup(pIndex, 'laboratoryId', e.target.value);
+                            const lab = laboratories.find((l) => l.id === e.target.value);
+                            if (lab) {
+                              updatePickup(pIndex, 'pickupAddress', lab.address || '');
+                            }
+                          }}
+                          error={!!errors[`pickup_${pIndex}_lab`]}
+                          options={[
+                            { value: '', label: 'Seleccione un laboratorio' },
+                            ...laboratories.map((lab) => ({
+                              value: lab.id,
+                              label: lab.name,
+                            })),
+                          ]}
+                        />
+                      </FormField>
+
+                      <FormField label="Fecha de Recolección" required>
+                        <Input
+                          icon="📅"
+                          type="datetime-local"
+                          value={pickup.pickupDate}
+                          onChange={(e) => updatePickup(pIndex, 'pickupDate', e.target.value)}
+                        />
+                      </FormField>
+                    </div>
+
+                    {selectedLab && (
+                      <div className={styles.addressHint}>
+                        📍 Dirección: {selectedLab.address || 'No especificada'}
+                      </div>
+                    )}
+
+                    {/* Deliveries Section */}
+                    <div className={styles.deliveriesSection}>
+                      <div className={styles.deliveriesHeader}>
+                        <h4 className={styles.deliveriesTitle}>
+                          <span>🚚</span>
+                          Entregas para esta recolección
+                        </h4>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => addDelivery(pIndex)}
+                        >
+                          + Agregar Entrega
+                        </Button>
+                      </div>
+
+                      {errors[`pickup_${pIndex}_deliveries`] && (
+                        <p className={styles.errorMessage}>
+                          {errors[`pickup_${pIndex}_deliveries`]}
+                        </p>
+                      )}
+
+                      {pickup.deliveries.map((delivery, dIndex) => {
+                        const selectedPharm = pharmacies.find((p) => p.id === delivery.pharmacyId);
+
+                        return (
+                          <div key={dIndex} className={styles.deliveryCard}>
+                            <div className={styles.deliveryHeader}>
+                              <span className={styles.deliveryBadge}>Entrega {dIndex + 1}</span>
+                              <button
+                                type="button"
+                                className={styles.removeBtn}
+                                onClick={() => removeDelivery(pIndex, dIndex)}
+                              >
+                                ✕
+                              </button>
+                            </div>
+
+                            <div className={styles.deliveryGrid}>
+                              <FormField
+                                label="Farmacia"
+                                required
+                                error={errors[`delivery_${pIndex}_${dIndex}_pharmacy`]}
+                              >
+                                <Select
+                                  icon="💊"
+                                  value={delivery.pharmacyId}
+                                  onChange={(e) => {
+                                    updateDelivery(pIndex, dIndex, 'pharmacyId', e.target.value);
+                                    const pharm = pharmacies.find((p) => p.id === e.target.value);
+                                    if (pharm) {
+                                      updateDelivery(pIndex, dIndex, 'deliveryAddress', pharm.address || '');
+                                    }
+                                  }}
+                                  error={!!errors[`delivery_${pIndex}_${dIndex}_pharmacy`]}
+                                  options={[
+                                    { value: '', label: 'Seleccione farmacia' },
+                                    ...pharmacies.map((pharm) => ({
+                                      value: pharm.id,
+                                      label: pharm.name,
+                                    })),
+                                  ]}
+                                />
+                              </FormField>
+
+                              <FormField label="Nro. Factura">
+                                <Input
+                                  icon="📄"
+                                  type="text"
+                                  placeholder="F-12345"
+                                  value={delivery.invoiceNumber}
+                                  onChange={(e) =>
+                                    updateDelivery(pIndex, dIndex, 'invoiceNumber', e.target.value)
+                                  }
+                                />
+                              </FormField>
+
+                              <FormField label="Valor ($)">
+                                <Input
+                                  icon="💰"
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="0.00"
+                                  value={delivery.merchandiseValue}
+                                  onChange={(e) =>
+                                    updateDelivery(
+                                      pIndex,
+                                      dIndex,
+                                      'merchandiseValue',
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                />
+                              </FormField>
+
+                              <FormField label="Tipo de Producto">
+                                <Select
+                                  icon="📦"
+                                  value={delivery.productType}
+                                  onChange={(e) =>
+                                    updateDelivery(pIndex, dIndex, 'productType', e.target.value)
+                                  }
+                                  options={[
+                                    { value: 'farmaceutico', label: 'Farmacéutico' },
+                                    { value: 'cosmetico', label: 'Cosmético' },
+                                    { value: 'alimentos', label: 'Alimentos' },
+                                    { value: 'otro', label: 'Otro' },
+                                  ]}
+                                />
+                              </FormField>
+                            </div>
+
+                            {selectedPharm && (
+                              <div className={styles.addressHint}>
+                                📍 Dirección: {selectedPharm.address || 'No especificada'}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {error && (
+          <div style={{ padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px' }}>
+            <p style={{ color: 'var(--color-error)', margin: 0 }}>{error}</p>
           </div>
+        )}
 
-          {/* Distancia */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Distancia (km)
-            </label>
-            <input
-              type="number"
-              name="distance"
-              value={formData.distance}
-              onChange={handleChange}
-              min="0"
-              step="0.1"
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            />
-          </div>
-
-          {/* Costo Estimado */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Costo Estimado ($)
-            </label>
-            <input
-              type="number"
-              name="estimatedCost"
-              value={formData.estimatedCost}
-              onChange={handleChange}
-              min="0"
-              step="0.01"
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            />
-          </div>
-
-          {/* Estado */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Estado *
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            >
-              <option value="pending">Pendiente</option>
-              <option value="assigned">Asignado</option>
-              <option value="pickup">Recogido</option>
-              <option value="in_transit">En Tránsito</option>
-              <option value="delivered">Entregado</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
-          </div>
-
-          {/* Prioridad */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Prioridad *
-            </label>
-            <select
-              name="priority"
-              value={formData.priority}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            >
-              <option value="low">Baja</option>
-              <option value="normal">Normal</option>
-              <option value="high">Alta</option>
-              <option value="urgent">Urgente</option>
-            </select>
-          </div>
-
-          {/* Fecha de Recogida */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Fecha de Recogida *
-            </label>
-            <input
-              type="datetime-local"
-              name="pickupDate"
-              value={formData.pickupDate}
-              onChange={handleChange}
-              required
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            />
-          </div>
-
-          {/* Fecha de Entrega */}
-          <div>
-            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-              Fecha de Entrega
-            </label>
-            <input
-              type="datetime-local"
-              name="deliveryDate"
-              value={formData.deliveryDate}
-              onChange={handleChange}
-              style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white' }}
-            />
-          </div>
-        </div>
-
-        {/* Notas de Recogida */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-            Notas de Recogida
-          </label>
-          <textarea
-            name="pickupNotes"
-            value={formData.pickupNotes}
-            onChange={handleChange}
-            rows={3}
-            style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white', resize: 'vertical' }}
-          />
-        </div>
-
-        {/* Notas de Entrega */}
-        <div style={{ marginTop: '1.5rem' }}>
-          <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-            Notas de Entrega
-          </label>
-          <textarea
-            name="deliveryNotes"
-            value={formData.deliveryNotes}
-            onChange={handleChange}
-            rows={3}
-            style={{ width: '100%', padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '1rem', color: '#111827', backgroundColor: 'white', resize: 'vertical' }}
-          />
-        </div>
-
-        <div style={{ marginTop: '2rem', display: 'flex', gap: '1rem' }}>
-          <button
-            type="submit"
-            disabled={saving}
-            style={{ flex: 1, backgroundColor: saving ? '#9ca3af' : '#2563eb', color: 'white', padding: '0.75rem', borderRadius: '6px', border: 'none', fontSize: '1rem', fontWeight: '500', cursor: saving ? 'not-allowed' : 'pointer' }}
-          >
-            {saving ? 'Guardando...' : 'Guardar Cambios'}
-          </button>
-          <Link
-            href={`/dispatches/${resolvedParams.id}`}
-            style={{ flex: 1, backgroundColor: '#e5e7eb', color: '#374151', padding: '0.75rem', borderRadius: '6px', textAlign: 'center', textDecoration: 'none', fontSize: '1rem', fontWeight: '500', display: 'block' }}
-          >
+        <div className={styles.actions}>
+          <Button type="button" variant="ghost" onClick={() => router.push('/dispatches')}>
             Cancelar
-          </Link>
+          </Button>
+          <Button type="submit" variant="primary" loading={submitting}>
+            {submitting ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
         </div>
       </form>
     </div>

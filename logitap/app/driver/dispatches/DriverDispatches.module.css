@@ -1,0 +1,249 @@
+.container {
+  min-height: 100vh;
+  padding: var(--spacing-2xl);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Header */
+.header {
+  margin-bottom: var(--spacing-2xl);
+  animation: slideInLeft 0.6s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.headerContent {
+  margin-bottom: var(--spacing-lg);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: var(--spacing-sm);
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.titleIcon {
+  font-size: 3rem;
+  filter: drop-shadow(0 0 10px rgba(0, 217, 255, 0.5));
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--color-text-secondary);
+}
+
+/* Stats Row */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-lg);
+}
+
+.statItem {
+  text-align: center;
+}
+
+.statValue {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--color-accent-primary);
+  line-height: 1;
+  margin-bottom: var(--spacing-xs);
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sections */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2xl);
+}
+
+.section {
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.sectionTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.sectionIcon {
+  font-size: 1.8rem;
+}
+
+/* Dispatch Grid */
+.dispatchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.dispatchLink {
+  text-decoration: none;
+  animation: slideInUp 0.5s ease-out both;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dispatch Card */
+.dispatchCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dispatchNumber {
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-accent-primary);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: 0.95rem;
+}
+
+.infoIcon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.infoText {
+  color: var(--color-text-secondary);
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: var(--spacing-2xl);
+}
+
+.emptyIcon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+  opacity: 0.5;
+}
+
+.emptyTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.emptyDescription {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+}
+
+/* Error State */
+.errorState {
+  text-align: center;
+  padding: var(--spacing-2xl);
+}
+
+.errorIcon {
+  font-size: 4rem;
+  margin-bottom: var(--spacing-lg);
+}
+
+.errorTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-error);
+  margin-bottom: var(--spacing-sm);
+}
+
+.errorDescription {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: var(--spacing-lg);
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .titleIcon {
+    font-size: 2rem;
+  }
+
+  .statsRow {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+  }
+
+  .dispatchGrid {
+    grid-template-columns: 1fr;
+  }
+}

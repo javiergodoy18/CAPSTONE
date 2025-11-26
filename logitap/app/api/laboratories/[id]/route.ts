@@ -55,6 +55,8 @@ export async function PUT(
         city: body.city,
         contactPerson: body.contactPerson || null,
         businessType: body.businessType || 'laboratory',
+        latitude: body.latitude !== undefined ? Number(body.latitude) : undefined,
+        longitude: body.longitude !== undefined ? Number(body.longitude) : undefined,
       },
     });
 
@@ -82,15 +84,36 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    await prisma.laboratory.delete({
-      where: { id: resolvedParams.id },
+    const { id } = resolvedParams;
+
+    // Verificar si el laboratorio tiene pickups en viajes activos
+    const activePickups = await prisma.pickup.findMany({
+      where: {
+        laboratoryId: id,
+        dispatch: {
+          status: {
+            in: ["scheduled", "in_progress"],
+          },
+        },
+      },
     });
 
-    return NextResponse.json({ message: 'Laboratorio eliminado' });
+    if (activePickups.length > 0) {
+      return NextResponse.json(
+        { error: `No se puede eliminar. El laboratorio tiene ${activePickups.length} pickup(s) en viaje(s) activo(s).` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.laboratory.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Laboratorio eliminado correctamente" });
   } catch (error) {
-    console.error('Error deleting laboratory:', error);
+    console.error("Error deleting laboratory:", error);
     return NextResponse.json(
-      { error: 'Error al eliminar laboratorio' },
+      { error: "Error al eliminar laboratorio" },
       { status: 500 }
     );
   }

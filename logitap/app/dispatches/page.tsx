@@ -1,283 +1,337 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Badge from '../components/Badge';
+import SearchBar from '../components/SearchBar';
+import FilterSelect from '../components/FilterSelect';
+import styles from './Dispatches.module.css';
 
 interface Dispatch {
   id: string;
   dispatchNumber: string;
+  status: string;
   scheduledStartDate: string;
   scheduledEndDate: string | null;
-  status: string;
   totalMerchandiseValue: number;
   totalIncome: number;
   vehicle: {
+    id: string;
     plate: string;
     brand: string;
     model: string;
   } | null;
   driver: {
+    id: string;
     name: string;
+    phone: string;
   } | null;
   pickups: {
     id: string;
-    laboratory: {
-      name: string;
-    };
+    laboratory: { name: string };
     deliveries: any[];
   }[];
 }
 
 export default function DispatchesPage() {
+  const router = useRouter();
   const [dispatches, setDispatches] = useState<Dispatch[]>([]);
+  const [filteredDispatches, setFilteredDispatches] = useState<Dispatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [filter, setFilter] = useState("all"); // all, scheduled, in_progress, completed
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     loadDispatches();
   }, []);
 
-  async function loadDispatches() {
+  useEffect(() => {
+    filterDispatches();
+  }, [dispatches, searchQuery, statusFilter]);
+
+  const loadDispatches = async () => {
     try {
-      const response = await fetch("/api/dispatches");
-      if (!response.ok) throw new Error("Error al cargar viajes");
+      const response = await fetch('/api/dispatches');
       const data = await response.json();
       setDispatches(data);
-      setLoading(false);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (error) {
+      console.error('Error loading dispatches:', error);
+    } finally {
       setLoading(false);
     }
-  }
+  };
 
-  function getStatusColor(status: string) {
-    const colors: any = {
-      scheduled: "#f59e0b",
-      assigned: "#3b82f6",
-      in_progress: "#8b5cf6",
-      completed: "#10b981",
-      cancelled: "#ef4444",
-    };
-    return colors[status] || "#6b7280";
-  }
+  const filterDispatches = () => {
+    let filtered = [...dispatches];
 
-  function getStatusLabel(status: string) {
-    const labels: any = {
-      scheduled: "Programado",
-      assigned: "Asignado",
-      in_progress: "En Ruta",
-      completed: "Completado",
-      cancelled: "Cancelado",
-    };
-    return labels[status] || status;
-  }
+    // Filter by search
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((dispatch) =>
+        dispatch.dispatchNumber.toLowerCase().includes(query) ||
+        dispatch.vehicle?.plate?.toLowerCase().includes(query) ||
+        dispatch.driver?.name?.toLowerCase().includes(query) ||
+        dispatch.pickups.some(p => p.laboratory.name.toLowerCase().includes(query))
+      );
+    }
 
-  function formatDate(dateString: string) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((dispatch) => dispatch.status === statusFilter);
+    }
 
-  const filteredDispatches = dispatches.filter((d) => {
-    if (filter === "all") return true;
-    return d.status === filter;
-  });
+    // Sort by date descending
+    filtered.sort((a, b) =>
+      new Date(b.scheduledStartDate).getTime() - new Date(a.scheduledStartDate).getTime()
+    );
+
+    setFilteredDispatches(filtered);
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!confirm('¿Estás seguro de eliminar este viaje?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/dispatches/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al eliminar');
+      }
+
+      loadDispatches();
+    } catch (error: any) {
+      alert(error.message || 'Error al eliminar el viaje');
+    }
+  };
+
+  const statusLabels: Record<string, string> = {
+    scheduled: 'Programado',
+    in_progress: 'En Progreso',
+    completed: 'Completado',
+    cancelled: 'Cancelado',
+  };
+
+  const statusVariants: Record<string, 'success' | 'warning' | 'danger' | 'default' | 'purple'> = {
+    scheduled: 'default',
+    in_progress: 'purple',
+    completed: 'success',
+    cancelled: 'danger',
+  };
+
+  const statusOptions = [
+    { value: 'all', label: 'Todos los Estados' },
+    { value: 'scheduled', label: 'Programados' },
+    { value: 'in_progress', label: 'En Progreso' },
+    { value: 'completed', label: 'Completados' },
+    { value: 'cancelled', label: 'Cancelados' },
+  ];
 
   if (loading) {
     return (
-      <div style={{ padding: "40px", textAlign: "center" }}>
-        <p style={{ fontSize: "18px", color: "#6b7280" }}>Cargando viajes...</p>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          <p className={styles.loadingText}>Cargando viajes...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "40px", maxWidth: "1400px", margin: "0 auto", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      {/* HEADER */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "32px" }}>
-        <div>
-          <h1 style={{ fontSize: "32px", fontWeight: "700", margin: "0 0 8px 0" }}>
-            Viajes / Despachos
-          </h1>
-          <p style={{ color: "#6b7280", margin: 0, fontSize: "16px" }}>
-            Gestiona todos los viajes de transporte
-          </p>
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleIcon}>🚛</span>
+              Gestión de Viajes
+            </h1>
+            <p className={styles.subtitle}>
+              {filteredDispatches.length} {filteredDispatches.length === 1 ? 'viaje' : 'viajes'}
+              {statusFilter !== 'all' && ` - ${statusOptions.find(o => o.value === statusFilter)?.label}`}
+            </p>
+          </div>
+          <Link href="/dispatches/new">
+            <Button size="lg" glow icon={<span>+</span>}>
+              Nuevo Viaje
+            </Button>
+          </Link>
         </div>
-        <Link
-          href="/dispatches/new"
-          style={{ padding: "12px 24px", background: "#10b981", color: "white", textDecoration: "none", borderRadius: "8px", fontWeight: "600", fontSize: "16px" }}
-        >
-          ➕ Crear Nuevo Viaje
-        </Link>
-      </div>
 
-      {error && (
-        <div style={{ padding: "16px", background: "#fee", border: "1px solid #fcc", borderRadius: "8px", color: "#c00", marginBottom: "24px" }}>
-          {error}
-        </div>
-      )}
-
-      {/* FILTROS */}
-      <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "20px", marginBottom: "24px" }}>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <button
-            onClick={() => setFilter("all")}
-            style={{ padding: "8px 16px", background: filter === "all" ? "#3b82f6" : "#f3f4f6", color: filter === "all" ? "white" : "#374151", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "14px" }}
-          >
-            Todos ({dispatches.length})
-          </button>
-          <button
-            onClick={() => setFilter("scheduled")}
-            style={{ padding: "8px 16px", background: filter === "scheduled" ? "#f59e0b" : "#f3f4f6", color: filter === "scheduled" ? "white" : "#374151", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "14px" }}
-          >
-            Programados ({dispatches.filter((d) => d.status === "scheduled").length})
-          </button>
-          <button
-            onClick={() => setFilter("in_progress")}
-            style={{ padding: "8px 16px", background: filter === "in_progress" ? "#8b5cf6" : "#f3f4f6", color: filter === "in_progress" ? "white" : "#374151", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "14px" }}
-          >
-            En Ruta ({dispatches.filter((d) => d.status === "in_progress").length})
-          </button>
-          <button
-            onClick={() => setFilter("completed")}
-            style={{ padding: "8px 16px", background: filter === "completed" ? "#10b981" : "#f3f4f6", color: filter === "completed" ? "white" : "#374151", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "500", fontSize: "14px" }}
-          >
-            Completados ({dispatches.filter((d) => d.status === "completed").length})
-          </button>
+        {/* Filters */}
+        <div className={styles.filters}>
+          <SearchBar
+            placeholder="Buscar por número, vehículo, conductor o laboratorio..."
+            onSearch={setSearchQuery}
+          />
+          <FilterSelect
+            label="Estado"
+            value={statusFilter}
+            options={statusOptions}
+            onChange={setStatusFilter}
+          />
         </div>
       </div>
 
-      {/* LISTA DE VIAJES */}
-      {filteredDispatches.length === 0 && (
-        <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "60px", textAlign: "center" }}>
-          <p style={{ fontSize: "18px", color: "#9ca3af", margin: 0 }}>
-            {filter === "all"
-              ? "No hay viajes registrados. Crea tu primer viaje."
-              : `No hay viajes con estado "${getStatusLabel(filter)}"`}
-          </p>
-        </div>
-      )}
+      {/* Dispatches Grid */}
+      {filteredDispatches.length === 0 ? (
+        <Card variant="glass" padding="lg">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>📦</div>
+            <h3 className={styles.emptyTitle}>No hay viajes</h3>
+            <p className={styles.emptyDescription}>
+              {searchQuery || statusFilter !== 'all'
+                ? 'No se encontraron viajes con los filtros aplicados'
+                : 'Comienza creando tu primer viaje'}
+            </p>
+            {!searchQuery && statusFilter === 'all' && (
+              <Link href="/dispatches/new">
+                <Button icon={<span>+</span>}>Crear Primer Viaje</Button>
+              </Link>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className={styles.grid}>
+          {filteredDispatches.map((dispatch, index) => {
+            const totalDeliveries = dispatch.pickups.reduce(
+              (sum, p) => sum + p.deliveries.length, 0
+            );
 
-      <div style={{ display: "grid", gap: "16px" }}>
-        {filteredDispatches.map((dispatch) => {
-          const totalDeliveries = dispatch.pickups.reduce(
-            (sum, p) => sum + p.deliveries.length,
-            0
-          );
-
-          return (
-            <Link
-              key={dispatch.id}
-              href={`/dispatches/${dispatch.id}`}
-              style={{ textDecoration: "none" }}
-            >
-              <div style={{ background: "white", border: "1px solid #e5e7eb", borderRadius: "12px", padding: "24px", cursor: "pointer", transition: "all 0.2s", ":hover": { boxShadow: "0 4px 12px rgba(0,0,0,0.1)" } }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.1)";
-                  e.currentTarget.style.borderColor = "#3b82f6";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.borderColor = "#e5e7eb";
-                }}
+            return (
+              <Card
+                key={dispatch.id}
+                hover
+                padding="lg"
+                className={styles.dispatchCard}
+                onClick={() => router.push(`/dispatches/${dispatch.id}`)}
               >
-                {/* HEADER DEL VIAJE */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "16px" }}>
-                  <div>
-                    <h3 style={{ fontSize: "20px", fontWeight: "700", margin: "0 0 8px 0", color: "#111827" }}>
-                      🚚 {dispatch.dispatchNumber}
-                    </h3>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: "#6b7280" }}>
-                      <span>📅 {formatDate(dispatch.scheduledStartDate)}</span>
-                      {dispatch.scheduledEndDate && (
-                        <>
-                          <span>→</span>
-                          <span>{formatDate(dispatch.scheduledEndDate)}</span>
-                        </>
-                      )}
+                {/* Card Header */}
+                <div className={styles.cardHeader}>
+                  <div className={styles.dispatchNumber}>
+                    <span className={styles.numberLabel}>#</span>
+                    {dispatch.dispatchNumber}
+                  </div>
+                  <Badge
+                    variant={statusVariants[dispatch.status]}
+                    dot
+                    pulse={dispatch.status === 'in_progress'}
+                  >
+                    {statusLabels[dispatch.status] || dispatch.status}
+                  </Badge>
+                </div>
+
+                {/* Card Content */}
+                <div className={styles.cardContent}>
+                  {/* Vehicle Info */}
+                  <div className={styles.infoRow}>
+                    <span className={styles.infoIcon}>🚗</span>
+                    <div className={styles.infoText}>
+                      <div className={styles.infoLabel}>Vehículo</div>
+                      <div className={styles.infoValue}>
+                        {dispatch.vehicle?.plate || 'Sin asignar'}
+                        {dispatch.vehicle && (
+                          <span className={styles.infoExtra}>
+                            {dispatch.vehicle.brand} {dispatch.vehicle.model}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div style={{ padding: "6px 12px", background: getStatusColor(dispatch.status), color: "white", borderRadius: "6px", fontSize: "13px", fontWeight: "600" }}>
-                    {getStatusLabel(dispatch.status)}
+
+                  {/* Driver Info */}
+                  <div className={styles.infoRow}>
+                    <span className={styles.infoIcon}>👤</span>
+                    <div className={styles.infoText}>
+                      <div className={styles.infoLabel}>Conductor</div>
+                      <div className={styles.infoValue}>
+                        {dispatch.driver?.name || 'Sin asignar'}
+                        {dispatch.driver?.phone && (
+                          <span className={styles.infoExtra}>{dispatch.driver.phone}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Date Info */}
+                  <div className={styles.infoRow}>
+                    <span className={styles.infoIcon}>📅</span>
+                    <div className={styles.infoText}>
+                      <div className={styles.infoLabel}>Fecha Programada</div>
+                      <div className={styles.infoValue}>
+                        {new Date(dispatch.scheduledStartDate).toLocaleDateString('es-ES', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pickups & Deliveries */}
+                  <div className={styles.infoRow}>
+                    <span className={styles.infoIcon}>📦</span>
+                    <div className={styles.infoText}>
+                      <div className={styles.infoLabel}>Ruta</div>
+                      <div className={styles.infoValue}>
+                        {dispatch.pickups.length} {dispatch.pickups.length === 1 ? 'pickup' : 'pickups'} · {totalDeliveries} {totalDeliveries === 1 ? 'entrega' : 'entregas'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Financial */}
+                  {(dispatch.totalMerchandiseValue > 0 || dispatch.totalIncome > 0) && (
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoIcon}>💰</span>
+                      <div className={styles.infoText}>
+                        <div className={styles.infoLabel}>Ingreso</div>
+                        <div className={styles.infoValueMoney}>
+                          ${dispatch.totalIncome.toLocaleString('es-CL')}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* INFORMACIÓN DEL VIAJE */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "16px" }}>
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 4px 0", fontWeight: "500" }}>VEHÍCULO</p>
-                    <p style={{ fontSize: "14px", color: "#374151", margin: 0, fontWeight: "600" }}>
-                      {dispatch.vehicle
-                        ? `${dispatch.vehicle.plate} - ${dispatch.vehicle.brand} ${dispatch.vehicle.model}`
-                        : "Sin asignar"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 4px 0", fontWeight: "500" }}>CONDUCTOR</p>
-                    <p style={{ fontSize: "14px", color: "#374151", margin: 0, fontWeight: "600" }}>
-                      {dispatch.driver ? dispatch.driver.name : "Sin asignar"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 4px 0", fontWeight: "500" }}>LABORATORIOS</p>
-                    <p style={{ fontSize: "14px", color: "#374151", margin: 0, fontWeight: "600" }}>
-                      {dispatch.pickups.length} laboratorios
-                    </p>
-                  </div>
-
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#9ca3af", margin: "0 0 4px 0", fontWeight: "500" }}>ENTREGAS</p>
-                    <p style={{ fontSize: "14px", color: "#374151", margin: 0, fontWeight: "600" }}>
-                      {totalDeliveries} entregas
-                    </p>
-                  </div>
+                {/* Card Actions */}
+                <div className={styles.cardActions}>
+                  <Link href={`/dispatches/${dispatch.id}`} className={styles.actionLink} onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" icon={<span>👁️</span>} fullWidth>
+                      Ver
+                    </Button>
+                  </Link>
+                  <Link href={`/dispatches/${dispatch.id}/edit`} className={styles.actionLink} onClick={(e) => e.stopPropagation()}>
+                    <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
+                      Editar
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<span>🗑️</span>}
+                    fullWidth
+                    onClick={(e) => handleDelete(e, dispatch.id)}
+                  >
+                    Eliminar
+                  </Button>
                 </div>
-
-                {/* LABORATORIOS */}
-                <div style={{ background: "#f9fafb", borderRadius: "8px", padding: "12px", marginBottom: "16px" }}>
-                  <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 8px 0", fontWeight: "600" }}>
-                    LABORATORIOS EN ESTE VIAJE:
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                    {dispatch.pickups.map((pickup) => (
-                      <span
-                        key={pickup.id}
-                        style={{ padding: "4px 10px", background: "#10b981", color: "white", borderRadius: "4px", fontSize: "12px", fontWeight: "500" }}
-                      >
-                        {pickup.laboratory.name} ({pickup.deliveries.length} entregas)
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* FINANCIERO */}
-                <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "16px", borderTop: "1px solid #e5e7eb" }}>
-                  <div>
-                    <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 4px 0" }}>Valor Mercancía</p>
-                    <p style={{ fontSize: "18px", fontWeight: "700", color: "#374151", margin: 0 }}>
-                      ${dispatch.totalMerchandiseValue.toLocaleString("es-CL")}
-                    </p>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <p style={{ fontSize: "12px", color: "#6b7280", margin: "0 0 4px 0" }}>Ingreso Total</p>
-                    <p style={{ fontSize: "18px", fontWeight: "700", color: "#10b981", margin: 0 }}>
-                      ${dispatch.totalIncome.toLocaleString("es-CL", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          );
-        })}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LOGITAP - Sistema de Logística y Transporte",
-  description: "Sistema de gestión de logística y transporte de productos farmacéuticos y agrícolas",
+  title: "Logitap - Sistema de Gestión Logística",
+  description: "Sistema completo de gestión logística para empresas de transporte",
 };
 
 export default function RootLayout({
@@ -25,11 +26,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Navbar />
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+        <AuthProvider>
+          <Navbar />
+          <main>{children}</main>
+        </AuthProvider>
       </body>
     </html>
   );

@@ -40,6 +40,7 @@ model Driver {
   updatedAt DateTime @updatedAt
 
   dispatches Dispatch[]
+  user       User?
 
   @@map("drivers")
 }
@@ -53,6 +54,8 @@ model Laboratory {
   city          String
   contactPerson String?
   businessType  String     @default("laboratory")
+  latitude      Float?
+  longitude     Float?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -177,4 +180,40 @@ model Delivery {
   updatedAt         DateTime  @updatedAt
 
   @@map("deliveries")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(DRIVER)
+  driverId  String?  @unique
+  driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions  Session[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  DRIVER
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("sessions")
 }

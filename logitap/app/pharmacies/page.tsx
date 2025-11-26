@@ -2,148 +2,232 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Badge from '../components/Badge';
+import SearchBar from '../components/SearchBar';
+import styles from './Pharmacies.module.css';
 
 interface Pharmacy {
   id: string;
   name: string;
-  rut?: string;
   email: string;
   phone: string;
   address: string;
   city: string;
-  contactPerson: string;
+  contactPerson?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  _count?: {
+    deliveries: number;
+  };
 }
 
 export default function PharmaciesPage() {
+  const router = useRouter();
   const [pharmacies, setPharmacies] = useState<Pharmacy[]>([]);
+  const [filteredPharmacies, setFilteredPharmacies] = useState<Pharmacy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchPharmacies();
+    loadPharmacies();
   }, []);
 
-  const fetchPharmacies = async () => {
+  useEffect(() => {
+    filterPharmacies();
+  }, [pharmacies, searchQuery]);
+
+  const loadPharmacies = async () => {
     try {
       const response = await fetch('/api/pharmacies');
       const data = await response.json();
-      setPharmacies(Array.isArray(data) ? data : []);
+      setPharmacies(data);
     } catch (error) {
-      console.error('Error:', error);
-      setPharmacies([]);
+      console.error('Error loading pharmacies:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deletePharmacy = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar esta farmacia?')) return;
+  const filterPharmacies = () => {
+    let filtered = [...pharmacies];
+
+    if (searchQuery) {
+      filtered = filtered.filter((pharmacy) =>
+        pharmacy.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pharmacy.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        pharmacy.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (pharmacy.contactPerson && pharmacy.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()))
+      );
+    }
+
+    setFilteredPharmacies(filtered);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta farmacia?')) {
+      return;
+    }
 
     try {
-      await fetch(`/api/pharmacies/${id}`, { method: 'DELETE' });
-      fetchPharmacies();
+      const response = await fetch(`/api/pharmacies/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar');
+      }
+
+      loadPharmacies();
     } catch (error) {
       console.error('Error:', error);
+      alert('Error al eliminar la farmacia');
     }
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-        <div style={{ fontSize: '1.25rem', color: '#6b7280' }}>Cargando...</div>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          <p className={styles.loadingText}>Cargando farmacias...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '2rem' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>Gestión de Farmacias</h1>
-          <Link
-            href="/pharmacies/new"
-            style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              padding: '0.75rem 1.5rem',
-              borderRadius: '8px',
-              textDecoration: 'none',
-              fontWeight: '500',
-              fontSize: '1rem',
-              display: 'inline-block'
-            }}
-          >
-            + Nueva Farmacia
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleIcon}>💊</span>
+              Gestión de Farmacias
+            </h1>
+            <p className={styles.subtitle}>
+              {filteredPharmacies.length} {filteredPharmacies.length === 1 ? 'farmacia' : 'farmacias'} registradas
+            </p>
+          </div>
+          <Link href="/pharmacies/new">
+            <Button size="lg" glow icon={<span>+</span>}>
+              Nueva Farmacia
+            </Button>
           </Link>
         </div>
 
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  NOMBRE
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  RUT
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  EMAIL
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  CIUDAD
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {pharmacies.map((pharmacy) => (
-                <tr key={pharmacy.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '1rem 1.5rem', fontWeight: '600', color: '#111827', fontSize: '0.875rem' }}>
-                    {pharmacy.name}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {pharmacy.rut || 'N/A'}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {pharmacy.email}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {pharmacy.city}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
-                    <Link
-                      href={`/pharmacies/${pharmacy.id}`}
-                      style={{ color: '#2563eb', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/pharmacies/${pharmacy.id}/edit`}
-                      style={{ color: '#10b981', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => deletePharmacy(pharmacy.id)}
-                      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {pharmacies.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280', fontSize: '0.875rem' }}>
-              No hay farmacias registradas
-            </div>
-          )}
+        {/* Search */}
+        <div className={styles.filters}>
+          <SearchBar
+            placeholder="Buscar por nombre, email, ciudad o contacto..."
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
+
+      {/* Pharmacies Grid */}
+      {filteredPharmacies.length === 0 ? (
+        <Card variant="glass" padding="lg">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>💊</div>
+            <h3 className={styles.emptyTitle}>No hay farmacias</h3>
+            <p className={styles.emptyDescription}>
+              {searchQuery
+                ? 'No se encontraron farmacias con los filtros aplicados'
+                : 'Comienza agregando tu primera farmacia'}
+            </p>
+            {!searchQuery && (
+              <Link href="/pharmacies/new">
+                <Button icon={<span>+</span>}>Agregar Primera Farmacia</Button>
+              </Link>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className={styles.grid}>
+          {filteredPharmacies.map((pharmacy) => (
+            <Card
+              key={pharmacy.id}
+              hover
+              padding="lg"
+              className={styles.pharmacyCard}
+            >
+              {/* Card Header */}
+              <div className={styles.cardHeader}>
+                <div className={styles.pharmacyIcon}>
+                  <span className={styles.icon}>💊</span>
+                </div>
+                {(pharmacy.latitude && pharmacy.longitude) && (
+                  <Badge variant="success" size="sm" dot>
+                    Geolocalizado
+                  </Badge>
+                )}
+              </div>
+
+              {/* Card Content */}
+              <div className={styles.cardContent}>
+                <h3 className={styles.pharmacyName}>{pharmacy.name}</h3>
+
+                <div className={styles.pharmacyInfo}>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📍</span>
+                    <span className={styles.infoText}>
+                      {pharmacy.address}, {pharmacy.city}
+                    </span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📧</span>
+                    <span className={styles.infoText}>{pharmacy.email}</span>
+                  </div>
+                  <div className={styles.infoItem}>
+                    <span className={styles.infoIcon}>📱</span>
+                    <span className={styles.infoText}>{pharmacy.phone}</span>
+                  </div>
+                  {pharmacy.contactPerson && (
+                    <div className={styles.infoItem}>
+                      <span className={styles.infoIcon}>👤</span>
+                      <span className={styles.infoText}>{pharmacy.contactPerson}</span>
+                    </div>
+                  )}
+                </div>
+
+                {pharmacy._count && (
+                  <div className={styles.pharmacyStats}>
+                    <div className={styles.statBadge}>
+                      <span className={styles.statValue}>{pharmacy._count.deliveries}</span>
+                      <span className={styles.statLabel}>deliveries</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card Actions */}
+              <div className={styles.cardActions}>
+                <Link href={`/pharmacies/${pharmacy.id}/edit`} className={styles.actionLink}>
+                  <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
+                    Editar
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<span>🗑️</span>}
+                  fullWidth
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(pharmacy.id);
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

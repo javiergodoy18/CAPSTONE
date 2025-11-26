@@ -1,0 +1,45 @@
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.required {
+  color: var(--color-accent-secondary);
+  font-size: 1rem;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+.error {
+  font-size: 0.85rem;
+  color: var(--color-error);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.errorIcon {
+  font-size: 1rem;
+}

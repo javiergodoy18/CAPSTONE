@@ -1,431 +1,224 @@
-"use client";
+import Link from 'next/link';
+import Card from './components/Card';
+import Button from './components/Button';
+import Badge from './components/Badge';
+import { prisma } from '@/lib/prisma';
+import styles from './Dashboard.module.css';
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+export default async function DashboardPage() {
+  // Obtener estadísticas
+  const [
+    totalDispatches,
+    inProgressDispatches,
+    completedDispatches,
+    totalVehicles,
+    totalDrivers,
+    recentDispatches,
+  ] = await Promise.all([
+    prisma.dispatch.count(),
+    prisma.dispatch.count({ where: { status: 'in_progress' } }),
+    prisma.dispatch.count({ where: { status: 'completed' } }),
+    prisma.vehicle.count(),
+    prisma.driver.count(),
+    prisma.dispatch.findMany({
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        vehicle: true,
+        driver: true,
+      },
+    }),
+  ]);
 
-interface DashboardStats {
-  dispatches: {
-    active: number;
-    scheduled: number;
-    completed_today: number;
-    total_month: number;
+  const stats = [
+    {
+      label: 'Total Viajes',
+      value: totalDispatches,
+      icon: '🚛',
+      trend: '+12%',
+      variant: 'info' as const,
+    },
+    {
+      label: 'En Progreso',
+      value: inProgressDispatches,
+      icon: '⚡',
+      trend: 'Activos',
+      variant: 'warning' as const,
+    },
+    {
+      label: 'Completados',
+      value: completedDispatches,
+      icon: '✓',
+      trend: `${totalDispatches > 0 ? Math.round((completedDispatches / totalDispatches) * 100) : 0}%`,
+      variant: 'success' as const,
+    },
+    {
+      label: 'Vehículos',
+      value: totalVehicles,
+      icon: '🚗',
+      trend: 'Activos',
+      variant: 'purple' as const,
+    },
+  ];
+
+  const statusLabels: Record<string, string> = {
+    scheduled: 'Programado',
+    in_progress: 'En Progreso',
+    completed: 'Completado',
+    cancelled: 'Cancelado',
   };
-  resources: {
-    vehicles_available: number;
-    vehicles_in_use: number;
-    drivers_available: number;
-    drivers_busy: number;
+
+  const statusVariants: Record<string, 'success' | 'warning' | 'danger' | 'default'> = {
+    scheduled: 'default',
+    in_progress: 'warning',
+    completed: 'success',
+    cancelled: 'danger',
   };
-  financials: {
-    today_income: number;
-    month_income: number;
-  };
-}
-
-interface ActiveDispatch {
-  id: string;
-  dispatchNumber: string;
-  status: string;
-  vehicle: { patent: string; brand: string; model: string } | null;
-  driver: { name: string } | null;
-  scheduledStartDate: string;
-  totalIncome: number;
-  pickups: {
-    laboratory: { name: string };
-    deliveries: any[];
-  }[];
-}
-
-export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activeDispatches, setActiveDispatches] = useState<ActiveDispatch[]>([]);
-  const [upcomingDispatches, setUpcomingDispatches] = useState<ActiveDispatch[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  async function loadDashboardData() {
-    try {
-      // Cargar todos los despachos
-      const dispatchesRes = await fetch("/api/dispatches");
-      const allDispatches = await dispatchesRes.json();
-
-      // Cargar vehículos y conductores
-      const [vehiclesRes, driversRes] = await Promise.all([
-        fetch("/api/vehicles"),
-        fetch("/api/drivers"),
-      ]);
-      const vehicles = await vehiclesRes.json();
-      const drivers = await driversRes.json();
-
-      // Calcular estadísticas
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      const active = allDispatches.filter(
-        (d: any) => d.status === "in_progress" || d.status === "assigned"
-      );
-      const scheduled = allDispatches.filter((d: any) => d.status === "scheduled");
-      const completedToday = allDispatches.filter(
-        (d: any) =>
-          d.status === "completed" &&
-          d.actualEndDate &&
-          new Date(d.actualEndDate) >= today
-      );
-      const completedMonth = allDispatches.filter(
-        (d: any) =>
-          d.status === "completed" &&
-          d.actualEndDate &&
-          new Date(d.actualEndDate) >= monthStart
-      );
-
-      const todayIncome = completedToday.reduce(
-        (sum: number, d: any) => sum + (d.totalIncome || 0),
-        0
-      );
-      const monthIncome = completedMonth.reduce(
-        (sum: number, d: any) => sum + (d.totalIncome || 0),
-        0
-      );
-
-      const vehiclesAvailable = vehicles.filter(
-        (v: any) => v.status === "available"
-      ).length;
-      const vehiclesInUse = vehicles.filter((v: any) => v.status === "in_use").length;
-      const driversAvailable = drivers.filter(
-        (d: any) => d.status === "available"
-      ).length;
-      const driversBusy = drivers.filter((d: any) => d.status === "busy").length;
-
-      setStats({
-        dispatches: {
-          active: active.length,
-          scheduled: scheduled.length,
-          completed_today: completedToday.length,
-          total_month: completedMonth.length,
-        },
-        resources: {
-          vehicles_available: vehiclesAvailable,
-          vehicles_in_use: vehiclesInUse,
-          drivers_available: driversAvailable,
-          drivers_busy: driversBusy,
-        },
-        financials: {
-          today_income: todayIncome,
-          month_income: monthIncome,
-        },
-      });
-
-      // Separar viajes activos y próximos
-      const upcoming = scheduled
-        .filter((d: any) => new Date(d.scheduledStartDate) > now)
-        .sort(
-          (a: any, b: any) =>
-            new Date(a.scheduledStartDate).getTime() -
-            new Date(b.scheduledStartDate).getTime()
-        )
-        .slice(0, 5);
-
-      setActiveDispatches(active.slice(0, 3));
-      setUpcomingDispatches(upcoming);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error loading dashboard:", error);
-      setLoading(false);
-    }
-  }
-
-  function formatDate(dateString: string) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-CL", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  if (loading) {
-    return <div className="loading">Cargando dashboard...</div>;
-  }
 
   return (
-    <div className="page-container">
-      <div className="page-content" style={{ maxWidth: "1400px" }}>
-        {/* HEADER */}
-        <div style={{ marginBottom: "32px" }}>
-          <h1 className="page-title">🏠 Dashboard Principal</h1>
-          <p className="page-subtitle">
-            Resumen ejecutivo de operaciones - {new Date().toLocaleDateString("es-CL", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric"
-            })}
-          </p>
-        </div>
-
-        {/* KPIs PRINCIPALES */}
-        {stats && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-            <div className="card" style={{ background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", border: "none" }}>
-              <p style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px" }}>Viajes Activos</p>
-              <p style={{ fontSize: "48px", fontWeight: "700", margin: "8px 0" }}>
-                {stats.dispatches.active}
-              </p>
-              <p style={{ fontSize: "13px", opacity: 0.8 }}>En ruta ahora</p>
-            </div>
-
-            <div className="card" style={{ background: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)", color: "white", border: "none" }}>
-              <p style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px" }}>Programados</p>
-              <p style={{ fontSize: "48px", fontWeight: "700", margin: "8px 0" }}>
-                {stats.dispatches.scheduled}
-              </p>
-              <p style={{ fontSize: "13px", opacity: 0.8 }}>Próximos viajes</p>
-            </div>
-
-            <div className="card" style={{ background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", color: "white", border: "none" }}>
-              <p style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px" }}>Completados Hoy</p>
-              <p style={{ fontSize: "48px", fontWeight: "700", margin: "8px 0" }}>
-                {stats.dispatches.completed_today}
-              </p>
-              <p style={{ fontSize: "13px", opacity: 0.8 }}>Viajes finalizados</p>
-            </div>
-
-            <div className="card" style={{ background: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)", color: "white", border: "none" }}>
-              <p style={{ fontSize: "14px", opacity: 0.9, marginBottom: "8px" }}>Ingresos Hoy</p>
-              <p style={{ fontSize: "48px", fontWeight: "700", margin: "8px 0" }}>
-                ${stats.financials.today_income.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-              </p>
-              <p style={{ fontSize: "13px", opacity: 0.8 }}>
-                Total mes: ${stats.financials.month_income.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* VIAJES ACTIVOS */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>🚚 Viajes Activos (En Ruta)</h2>
-            <Link href="/dispatches" style={{ color: "#3b82f6", fontSize: "14px", fontWeight: "500", textDecoration: "none" }}>
-              Ver todos →
-            </Link>
-          </div>
-
-          {activeDispatches.length === 0 ? (
-            <div className="empty-state">No hay viajes activos en este momento</div>
-          ) : (
-            <div style={{ display: "grid", gap: "16px" }}>
-              {activeDispatches.map((dispatch) => {
-                const totalDeliveries = dispatch.pickups.reduce(
-                  (sum, p) => sum + p.deliveries.length,
-                  0
-                );
-                const completedDeliveries = dispatch.pickups.reduce(
-                  (sum, p) => sum + p.deliveries.filter((d: any) => d.status === "delivered").length,
-                  0
-                );
-
-                return (
-                  <Link
-                    key={dispatch.id}
-                    href={`/dispatches/${dispatch.id}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <div
-                      style={{ background: "#f9fafb", border: "2px solid #e5e7eb", borderRadius: "12px", padding: "20px", cursor: "pointer", transition: "all 0.2s" }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#3b82f6";
-                        e.currentTarget.style.boxShadow = "0 4px 12px rgba(59, 130, 246, 0.15)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#e5e7eb";
-                        e.currentTarget.style.boxShadow = "none";
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "12px" }}>
-                        <div>
-                          <h3 style={{ fontSize: "18px", fontWeight: "700", color: "#111827", marginBottom: "4px" }}>
-                            🚚 {dispatch.dispatchNumber}
-                          </h3>
-                          <p style={{ fontSize: "14px", color: "#6b7280" }}>
-                            {dispatch.vehicle
-                              ? `${dispatch.vehicle.patent} - ${dispatch.vehicle.brand} ${dispatch.vehicle.model}`
-                              : "Sin vehículo"}{" "}
-                            | {dispatch.driver ? dispatch.driver.name : "Sin conductor"}
-                          </p>
-                        </div>
-                        <div style={{ padding: "6px 12px", background: "#8b5cf6", color: "white", borderRadius: "6px", fontSize: "13px", fontWeight: "600" }}>
-                          En Ruta
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "24px", fontSize: "14px", color: "#374151", marginBottom: "12px" }}>
-                        <span>🏢 {dispatch.pickups.length} laboratorios</span>
-                        <span>📦 Progreso: {completedDeliveries}/{totalDeliveries} entregas</span>
-                        <span style={{ color: "#10b981", fontWeight: "600" }}>
-                          💰 ${dispatch.totalIncome.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-                        </span>
-                      </div>
-
-                      <div style={{ background: "white", borderRadius: "8px", padding: "12px" }}>
-                        <div style={{ width: "100%", height: "8px", background: "#e5e7eb", borderRadius: "4px", overflow: "hidden" }}>
-                          <div
-                            style={{
-                              width: `${totalDeliveries > 0 ? (completedDeliveries / totalDeliveries) * 100 : 0}%`,
-                              height: "100%",
-                              background: "linear-gradient(90deg, #10b981 0%, #059669 100%)",
-                              transition: "width 0.3s",
-                            }}
-                          />
-                        </div>
-                        <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "6px", textAlign: "center" }}>
-                          {totalDeliveries > 0
-                            ? `${Math.round((completedDeliveries / totalDeliveries) * 100)}% completado`
-                            : "Sin entregas"}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* PRÓXIMOS VIAJES */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h2 className="card-title" style={{ marginBottom: 0 }}>📅 Próximos Viajes Programados</h2>
-            <Link href="/dispatches/new" className="btn btn-success">
-              ➕ Crear Nuevo Viaje
-            </Link>
-          </div>
-
-          {upcomingDispatches.length === 0 ? (
-            <div className="empty-state">No hay viajes programados próximamente</div>
-          ) : (
-            <div style={{ display: "grid", gap: "12px" }}>
-              {upcomingDispatches.map((dispatch) => {
-                const totalDeliveries = dispatch.pickups.reduce(
-                  (sum, p) => sum + p.deliveries.length,
-                  0
-                );
-
-                return (
-                  <Link
-                    key={dispatch.id}
-                    href={`/dispatches/${dispatch.id}`}
-                    style={{ textDecoration: "none" }}
-                  >
-                    <div
-                      style={{ background: "#fffbeb", border: "1px solid #fbbf24", borderRadius: "8px", padding: "16px", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", transition: "all 0.2s" }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#fef3c7";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "#fffbeb";
-                      }}
-                    >
-                      <div>
-                        <h3 style={{ fontSize: "16px", fontWeight: "700", color: "#111827", marginBottom: "4px" }}>
-                          🚚 {dispatch.dispatchNumber}
-                        </h3>
-                        <p style={{ fontSize: "14px", color: "#6b7280" }}>
-                          📅 {formatDate(dispatch.scheduledStartDate)} | 🏢 {dispatch.pickups.length} labs | 📦{" "}
-                          {totalDeliveries} entregas
-                        </p>
-                      </div>
-                      <div style={{ textAlign: "right" }}>
-                        <p style={{ fontSize: "12px", color: "#92400e", marginBottom: "4px" }}>Ingreso Estimado</p>
-                        <p style={{ fontSize: "18px", fontWeight: "700", color: "#10b981" }}>
-                          ${dispatch.totalIncome.toLocaleString("es-CL", { maximumFractionDigits: 0 })}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* RECURSOS DISPONIBLES */}
-        {stats && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px" }}>
-            <div className="card">
-              <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", color: "#374151" }}>
-                🚚 Vehículos
-              </h3>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ color: "#6b7280" }}>Disponibles</span>
-                <span style={{ fontSize: "24px", fontWeight: "700", color: "#10b981" }}>
-                  {stats.resources.vehicles_available}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-                <span style={{ color: "#6b7280" }}>En uso</span>
-                <span style={{ fontSize: "24px", fontWeight: "700", color: "#f59e0b" }}>
-                  {stats.resources.vehicles_in_use}
-                </span>
-              </div>
-              <Link href="/vehicles" className="btn btn-primary" style={{ width: "100%", textAlign: "center" }}>
-                Gestionar Vehículos
+    <div className={styles.dashboard}>
+      {/* Hero Section */}
+      <section className={styles.hero}>
+        <div className={styles.heroContent}>
+          <div className={styles.heroText}>
+            <h1 className={styles.heroTitle}>
+              <span className={styles.heroTitleMain}>Sistema de Gestión</span>
+              <span className={styles.heroTitleSub}>Logística en Tiempo Real</span>
+            </h1>
+            <p className={styles.heroDescription}>
+              Monitorea, optimiza y gestiona tu flota de transporte desde un solo lugar
+            </p>
+            <div className={styles.heroActions}>
+              <Link href="/dispatches/new">
+                <Button size="lg" glow icon={<span>+</span>}>
+                  Nuevo Viaje
+                </Button>
               </Link>
-            </div>
-
-            <div className="card">
-              <h3 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", color: "#374151" }}>
-                👥 Conductores
-              </h3>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ color: "#6b7280" }}>Disponibles</span>
-                <span style={{ fontSize: "24px", fontWeight: "700", color: "#10b981" }}>
-                  {stats.resources.drivers_available}
-                </span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "16px" }}>
-                <span style={{ color: "#6b7280" }}>Ocupados</span>
-                <span style={{ fontSize: "24px", fontWeight: "700", color: "#f59e0b" }}>
-                  {stats.resources.drivers_busy}
-                </span>
-              </div>
-              <Link href="/drivers" className="btn btn-primary" style={{ width: "100%", textAlign: "center" }}>
-                Gestionar Conductores
+              <Link href="/dispatches">
+                <Button size="lg" variant="outline" icon={<span>→</span>} iconPosition="right">
+                  Ver Todos los Viajes
+                </Button>
               </Link>
             </div>
           </div>
-        )}
-
-        {/* ACCIONES RÁPIDAS */}
-        <div className="card">
-          <h2 className="card-title">⚡ Acciones Rápidas</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
-            <Link href="/dispatches/new" className="btn btn-success" style={{ padding: "16px", fontSize: "15px" }}>
-              ➕ Crear Nuevo Viaje
-            </Link>
-            <Link href="/vehicles/new" className="btn btn-primary" style={{ padding: "16px", fontSize: "15px" }}>
-              🚚 Nuevo Vehículo
-            </Link>
-            <Link href="/drivers/new" className="btn btn-primary" style={{ padding: "16px", fontSize: "15px" }}>
-              👤 Nuevo Conductor
-            </Link>
-            <Link href="/laboratories/new" className="btn btn-primary" style={{ padding: "16px", fontSize: "15px" }}>
-              🏢 Nuevo Laboratorio
-            </Link>
-            <Link href="/pharmacies/new" className="btn btn-primary" style={{ padding: "16px", fontSize: "15px" }}>
-              🏪 Nueva Farmacia
-            </Link>
-            <Link href="/dispatches" className="btn btn-secondary" style={{ padding: "16px", fontSize: "15px" }}>
-              📊 Ver Todos los Viajes
-            </Link>
+          <div className={styles.heroVisual}>
+            <div className={styles.heroOrb} />
+            <div className={styles.heroGrid} />
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Stats Grid */}
+      <section className={styles.statsGrid}>
+        {stats.map((stat, index) => (
+          <Card
+            key={stat.label}
+            variant="glass"
+            hover
+            className={styles.statCard}
+          >
+            <div className={styles.statIcon}>{stat.icon}</div>
+            <div className={styles.statContent}>
+              <div className={styles.statLabel}>{stat.label}</div>
+              <div className={styles.statValue}>{stat.value}</div>
+              <Badge variant={stat.variant} size="sm">
+                {stat.trend}
+              </Badge>
+            </div>
+          </Card>
+        ))}
+      </section>
+
+      {/* Recent Activity */}
+      <section className={styles.recentSection}>
+        <div className={styles.sectionHeader}>
+          <div>
+            <h2 className={styles.sectionTitle}>Actividad Reciente</h2>
+            <p className={styles.sectionDescription}>
+              Últimos viajes registrados en el sistema
+            </p>
+          </div>
+          <Link href="/dispatches">
+            <Button variant="ghost" icon={<span>→</span>} iconPosition="right">
+              Ver Todos
+            </Button>
+          </Link>
+        </div>
+
+        <div className={styles.dispatchList}>
+          {recentDispatches.length === 0 ? (
+            <Card padding="lg">
+              <p className={styles.emptyState}>No hay viajes registrados aún</p>
+            </Card>
+          ) : (
+            recentDispatches.map((dispatch) => (
+              <Link
+                key={dispatch.id}
+                href={`/dispatches/${dispatch.id}`}
+                className={styles.dispatchItem}
+              >
+                <Card hover padding="md">
+                  <div className={styles.dispatchHeader}>
+                    <div className={styles.dispatchNumber}>
+                      {dispatch.dispatchNumber}
+                    </div>
+                    <Badge
+                      variant={statusVariants[dispatch.status]}
+                      dot
+                      pulse={dispatch.status === 'in_progress'}
+                    >
+                      {statusLabels[dispatch.status]}
+                    </Badge>
+                  </div>
+                  <div className={styles.dispatchDetails}>
+                    <div className={styles.dispatchDetail}>
+                      <span className={styles.dispatchIcon}>🚗</span>
+                      <span>{dispatch.vehicle?.plate || 'Sin vehículo'}</span>
+                    </div>
+                    <div className={styles.dispatchDetail}>
+                      <span className={styles.dispatchIcon}>👤</span>
+                      <span>{dispatch.driver?.name || 'Sin conductor'}</span>
+                    </div>
+                    <div className={styles.dispatchDetail}>
+                      <span className={styles.dispatchIcon}>📅</span>
+                      <span>
+                        {new Date(dispatch.scheduledStartDate).toLocaleDateString('es-ES')}
+                      </span>
+                    </div>
+                  </div>
+                </Card>
+              </Link>
+            ))
+          )}
+        </div>
+      </section>
+
+      {/* Quick Actions */}
+      <section className={styles.quickActions}>
+        <h2 className={styles.sectionTitle}>Accesos Rápidos</h2>
+        <div className={styles.actionsGrid}>
+          {[
+            { href: '/vehicles', label: 'Gestionar Vehículos', icon: '🚗', color: 'cyan' },
+            { href: '/drivers', label: 'Gestionar Conductores', icon: '👤', color: 'orange' },
+            { href: '/laboratories', label: 'Laboratorios', icon: '🏢', color: 'purple' },
+            { href: '/pharmacies', label: 'Farmacias', icon: '💊', color: 'green' },
+          ].map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className={styles.actionCard}
+            >
+              <Card hover padding="lg" variant="glass">
+                <div className={`${styles.actionIcon} ${styles[action.color]}`}>
+                  {action.icon}
+                </div>
+                <div className={styles.actionLabel}>{action.label}</div>
+                <div className={styles.actionArrow}>→</div>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Badge from '../components/Badge';
+import SearchBar from '../components/SearchBar';
+import styles from './Vehicles.module.css';
 
 interface Vehicle {
   id: string;
@@ -9,252 +15,220 @@ interface Vehicle {
   brand: string;
   model: string;
   year: number;
-  type: string;
   capacity: number;
   status: string;
-  fuelType?: string;
-  mileage?: number;
-  lastService?: string;
-  notes?: string;
+  _count?: {
+    dispatches: number;
+  };
 }
 
 export default function VehiclesPage() {
+  const router = useRouter();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    fetchVehicles();
+    loadVehicles();
   }, []);
 
-  const fetchVehicles = async () => {
+  useEffect(() => {
+    filterVehicles();
+  }, [vehicles, searchQuery]);
+
+  const loadVehicles = async () => {
     try {
       const response = await fetch('/api/vehicles');
       const data = await response.json();
       setVehicles(data);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error loading vehicles:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteVehicle = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este vehículo?')) return;
+  const filterVehicles = () => {
+    let filtered = [...vehicles];
+
+    if (searchQuery) {
+      filtered = filtered.filter((vehicle) =>
+        vehicle.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.model.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredVehicles(filtered);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este vehículo?')) {
+      return;
+    }
 
     try {
-      await fetch(`/api/vehicles/${id}`, { method: 'DELETE' });
-      fetchVehicles();
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar');
+      }
+
+      loadVehicles();
     } catch (error) {
       console.error('Error:', error);
+      alert('Error al eliminar el vehículo');
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      available: '#10b981',
-      in_use: '#3b82f6',
-      maintenance: '#f59e0b',
-      inactive: '#6b7280',
-    };
-    return colors[status] || '#6b7280';
+  const statusLabels: Record<string, string> = {
+    available: 'Disponible',
+    in_use: 'En Uso',
+    maintenance: 'Mantenimiento',
+    inactive: 'Inactivo',
   };
 
-  const getStatusLabel = (status: string) => {
-    const labels: Record<string, string> = {
-      available: 'Disponible',
-      in_use: 'En Uso',
-      maintenance: 'Mantenimiento',
-      inactive: 'Inactivo',
-    };
-    return labels[status] || status;
+  const statusVariants: Record<string, 'success' | 'warning' | 'danger' | 'default'> = {
+    available: 'success',
+    in_use: 'default',
+    maintenance: 'warning',
+    inactive: 'danger',
   };
-
-  const filteredVehicles = vehicles.filter(
-    (v) => filter === 'all' || v.status === filter
-  );
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-        <div style={{ fontSize: '1.25rem', color: '#6b7280' }}>Cargando...</div>
+      <div className={styles.container}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.spinner} />
+          <p className={styles.loadingText}>Cargando vehículos...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '2rem' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: '#111827' }}>Gestión de Vehículos</h1>
-          <Link
-            href="/vehicles/new"
-            style={{ 
-              backgroundColor: '#2563eb', 
-              color: 'white', 
-              padding: '0.75rem 1.5rem', 
-              borderRadius: '8px', 
-              textDecoration: 'none',
-              fontWeight: '500',
-              fontSize: '1rem',
-              display: 'inline-block'
-            }}
-          >
-            + Nuevo Vehículo
+    <div className={styles.container}>
+      {/* Header */}
+      <div className={styles.header}>
+        <div className={styles.headerContent}>
+          <div className={styles.headerText}>
+            <h1 className={styles.title}>
+              <span className={styles.titleIcon}>🚗</span>
+              Gestión de Vehículos
+            </h1>
+            <p className={styles.subtitle}>
+              {filteredVehicles.length} {filteredVehicles.length === 1 ? 'vehículo' : 'vehículos'} en la flota
+            </p>
+          </div>
+          <Link href="/vehicles/new">
+            <Button size="lg" glow icon={<span>+</span>}>
+              Nuevo Vehículo
+            </Button>
           </Link>
         </div>
 
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setFilter('all')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'all' ? '#2563eb' : '#e5e7eb',
-              color: filter === 'all' ? 'white' : '#374151',
-            }}
-          >
-            Todos ({vehicles.length})
-          </button>
-          <button
-            onClick={() => setFilter('available')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'available' ? '#10b981' : '#e5e7eb',
-              color: filter === 'available' ? 'white' : '#374151',
-            }}
-          >
-            Disponibles
-          </button>
-          <button
-            onClick={() => setFilter('in_use')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'in_use' ? '#3b82f6' : '#e5e7eb',
-              color: filter === 'in_use' ? 'white' : '#374151',
-            }}
-          >
-            En Uso
-          </button>
-          <button
-            onClick={() => setFilter('maintenance')}
-            style={{
-              padding: '0.625rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              cursor: 'pointer',
-              fontWeight: '500',
-              fontSize: '0.875rem',
-              backgroundColor: filter === 'maintenance' ? '#f59e0b' : '#e5e7eb',
-              color: filter === 'maintenance' ? 'white' : '#374151',
-            }}
-          >
-            Mantenimiento
-          </button>
-        </div>
-
-        {/* Table */}
-        <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead style={{ backgroundColor: '#f9fafb' }}>
-              <tr>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  PATENTE
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  VEHÍCULO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  TIPO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  CAPACIDAD
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ESTADO
-                </th>
-                <th style={{ padding: '1rem 1.5rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  ACCIONES
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredVehicles.map((vehicle) => (
-                <tr key={vehicle.id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '1rem 1.5rem', fontWeight: '600', color: '#111827', fontSize: '0.875rem' }}>
-                    {vehicle.plate}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {vehicle.brand} {vehicle.model} ({vehicle.year})
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem', textTransform: 'capitalize' }}>
-                    {vehicle.type}
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', color: '#374151', fontSize: '0.875rem' }}>
-                    {vehicle.capacity} kg
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem' }}>
-                    <span
-                      style={{
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '9999px',
-                        fontSize: '0.75rem',
-                        fontWeight: '600',
-                        backgroundColor: getStatusColor(vehicle.status) + '20',
-                        color: getStatusColor(vehicle.status),
-                      }}
-                    >
-                      {getStatusLabel(vehicle.status)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '1rem 1.5rem', fontSize: '0.875rem' }}>
-                    <Link
-                      href={`/vehicles/${vehicle.id}`}
-                      style={{ color: '#2563eb', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Ver
-                    </Link>
-                    <Link
-                      href={`/vehicles/${vehicle.id}/edit`}
-                      style={{ color: '#10b981', textDecoration: 'none', marginRight: '1rem', fontWeight: '500' }}
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      onClick={() => deleteVehicle(vehicle.id)}
-                      style={{ color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '500' }}
-                    >
-                      Eliminar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredVehicles.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280', fontSize: '0.875rem' }}>
-              No hay vehículos registrados
-            </div>
-          )}
+        {/* Search */}
+        <div className={styles.filters}>
+          <SearchBar
+            placeholder="Buscar por patente, marca o modelo..."
+            onSearch={setSearchQuery}
+          />
         </div>
       </div>
+
+      {/* Vehicles Grid */}
+      {filteredVehicles.length === 0 ? (
+        <Card variant="glass" padding="lg">
+          <div className={styles.emptyState}>
+            <div className={styles.emptyIcon}>🚗</div>
+            <h3 className={styles.emptyTitle}>No hay vehículos</h3>
+            <p className={styles.emptyDescription}>
+              {searchQuery
+                ? 'No se encontraron vehículos con los filtros aplicados'
+                : 'Comienza agregando tu primer vehículo a la flota'}
+            </p>
+            {!searchQuery && (
+              <Link href="/vehicles/new">
+                <Button icon={<span>+</span>}>Agregar Primer Vehículo</Button>
+              </Link>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className={styles.grid}>
+          {filteredVehicles.map((vehicle, index) => (
+            <Card
+              key={vehicle.id}
+              hover
+              padding="lg"
+              className={styles.vehicleCard}
+            >
+              {/* Card Header */}
+              <div className={styles.cardHeader}>
+                <div className={styles.vehiclePatent}>
+                  <span className={styles.patentLabel}>🚗</span>
+                  {vehicle.plate}
+                </div>
+                <Badge variant={statusVariants[vehicle.status]} dot>
+                  {statusLabels[vehicle.status]}
+                </Badge>
+              </div>
+
+              {/* Card Content */}
+              <div className={styles.cardContent}>
+                <div className={styles.vehicleInfo}>
+                  <div className={styles.vehicleBrand}>
+                    {vehicle.brand} {vehicle.model}
+                  </div>
+                  <div className={styles.vehicleDetails}>
+                    <span className={styles.detail}>
+                      <span className={styles.detailIcon}>📅</span>
+                      Año {vehicle.year}
+                    </span>
+                    <span className={styles.detail}>
+                      <span className={styles.detailIcon}>📦</span>
+                      {vehicle.capacity} kg
+                    </span>
+                  </div>
+                </div>
+
+                {vehicle._count && (
+                  <div className={styles.vehicleStats}>
+                    <div className={styles.statBadge}>
+                      <span className={styles.statValue}>{vehicle._count.dispatches}</span>
+                      <span className={styles.statLabel}>viajes</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card Actions */}
+              <div className={styles.cardActions}>
+                <Link href={`/vehicles/${vehicle.id}/edit`} className={styles.actionLink}>
+                  <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
+                    Editar
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<span>🗑️</span>}
+                  fullWidth
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(vehicle.id);
+                  }}
+                >
+                  Eliminar
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

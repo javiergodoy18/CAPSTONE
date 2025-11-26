@@ -1,0 +1,117 @@
+.card {
+  position: relative;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all var(--transition-base);
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 217, 255, 0.05) 0%,
+    transparent 50%,
+    rgba(255, 107, 0, 0.05) 100%
+  );
+  opacity: 0;
+  transition: opacity var(--transition-slow);
+  pointer-events: none;
+}
+
+/* Variants */
+.default {
+  background: var(--color-bg-secondary);
+}
+
+.highlighted {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 217, 255, 0.1) 0%,
+    var(--color-bg-secondary) 50%
+  );
+  border-color: rgba(0, 217, 255, 0.2);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.bordered {
+  background: transparent;
+  border: 2px solid rgba(0, 217, 255, 0.3);
+}
+
+/* Padding */
+.padding-sm {
+  padding: var(--spacing-md);
+}
+
+.padding-md {
+  padding: var(--spacing-lg);
+}
+
+.padding-lg {
+  padding: var(--spacing-xl);
+}
+
+/* States */
+.hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(0, 217, 255, 0.3);
+  box-shadow: var(--shadow-lg);
+}
+
+.hover:hover::before {
+  opacity: 1;
+}
+
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:active {
+  transform: translateY(-2px);
+}
+
+/* Glow effect */
+.glow {
+  box-shadow:
+    0 0 20px rgba(0, 217, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.glowEffect {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle at center,
+    rgba(0, 217, 255, 0.15) 0%,
+    transparent 70%
+  );
+  animation: rotateGlow 8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rotateGlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .padding-lg {
+    padding: var(--spacing-lg);
+  }
+
+  .hover:hover {
+    transform: none;
+  }
+}

@@ -69,15 +69,34 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    await prisma.vehicle.delete({
-      where: { id: resolvedParams.id },
+    const { id } = resolvedParams;
+
+    // Verificar si el vehículo está asignado a algún viaje activo
+    const activeDispatches = await prisma.dispatch.findMany({
+      where: {
+        vehicleId: id,
+        status: {
+          in: ["scheduled", "in_progress"],
+        },
+      },
     });
 
-    return NextResponse.json({ message: 'Vehículo eliminado' });
+    if (activeDispatches.length > 0) {
+      return NextResponse.json(
+        { error: `No se puede eliminar. El vehículo está asignado a ${activeDispatches.length} viaje(s) activo(s).` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.vehicle.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Vehículo eliminado correctamente" });
   } catch (error) {
-    console.error('Error deleting vehicle:', error);
+    console.error("Error deleting vehicle:", error);
     return NextResponse.json(
-      { error: 'Error al eliminar vehículo' },
+      { error: "Error al eliminar vehículo" },
       { status: 500 }
     );
   }

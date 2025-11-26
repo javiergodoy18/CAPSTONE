@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma:*)",
+      "Bash(mkdir:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run seed:users:*)",
+      "Bash(npm run create:admin:*)",
+      "Bash(rsync:*)",
+      "Bash(tar:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

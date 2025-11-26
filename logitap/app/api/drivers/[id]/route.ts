@@ -63,15 +63,34 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    await prisma.driver.delete({
-      where: { id: resolvedParams.id },
+    const { id } = resolvedParams;
+
+    // Verificar si el conductor está asignado a algún viaje activo
+    const activeDispatches = await prisma.dispatch.findMany({
+      where: {
+        driverId: id,
+        status: {
+          in: ["scheduled", "in_progress"],
+        },
+      },
     });
 
-    return NextResponse.json({ message: 'Conductor eliminado' });
+    if (activeDispatches.length > 0) {
+      return NextResponse.json(
+        { error: `No se puede eliminar. El conductor está asignado a ${activeDispatches.length} viaje(s) activo(s).` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.driver.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Conductor eliminado correctamente" });
   } catch (error) {
-    console.error('Error deleting driver:', error);
+    console.error("Error deleting driver:", error);
     return NextResponse.json(
-      { error: 'Error al eliminar conductor' },
+      { error: "Error al eliminar conductor" },
       { status: 500 }
     );
   }

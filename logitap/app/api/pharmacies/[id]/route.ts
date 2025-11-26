@@ -60,6 +60,8 @@ export async function PUT(
         address: body.address,
         city: body.city,
         contactPerson: body.contactPerson,
+        latitude: body.latitude !== undefined ? Number(body.latitude) : undefined,
+        longitude: body.longitude !== undefined ? Number(body.longitude) : undefined,
       },
     });
 
@@ -87,15 +89,36 @@ export async function DELETE(
 ) {
   try {
     const resolvedParams = await params;
-    await prisma.pharmacy.delete({
-      where: { id: resolvedParams.id },
+    const { id } = resolvedParams;
+
+    // Verificar si la farmacia tiene deliveries en viajes activos
+    const activeDeliveries = await prisma.delivery.findMany({
+      where: {
+        pharmacyId: id,
+        dispatch: {
+          status: {
+            in: ["scheduled", "in_progress"],
+          },
+        },
+      },
     });
 
-    return NextResponse.json({ message: 'Farmacia eliminada' });
+    if (activeDeliveries.length > 0) {
+      return NextResponse.json(
+        { error: `No se puede eliminar. La farmacia tiene ${activeDeliveries.length} entrega(s) en viaje(s) activo(s).` },
+        { status: 400 }
+      );
+    }
+
+    await prisma.pharmacy.delete({
+      where: { id },
+    });
+
+    return NextResponse.json({ message: "Farmacia eliminada correctamente" });
   } catch (error) {
-    console.error('Error deleting pharmacy:', error);
+    console.error("Error deleting pharmacy:", error);
     return NextResponse.json(
-      { error: 'Error al eliminar farmacia' },
+      { error: "Error al eliminar farmacia" },
       { status: 500 }
     );
   }
