@@ -1,9 +1,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyPassword, createSession } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
+    // Verificar rate limiting por IP
+    const clientIp = getClientIp(request);
+    const rateLimit = checkRateLimit(`login:${clientIp}`, 5, 15 * 60 * 1000);
+
+    if (!rateLimit.allowed) {
+      const resetDate = new Date(rateLimit.resetTime);
+      const minutesRemaining = Math.ceil((rateLimit.resetTime - Date.now()) / 1000 / 60);
+
+      return NextResponse.json(
+        {
+          error: `Demasiados intentos de inicio de sesión. Por favor, intenta de nuevo en ${minutesRemaining} minuto(s).`,
+          retryAfter: resetDate.toISOString(),
+        },
+        { status: 429 }
+      );
+    }
+
     const body = await request.json();
     const { email, password } = body;
 
