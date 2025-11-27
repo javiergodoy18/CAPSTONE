@@ -4,25 +4,18 @@ import { verifyPassword, createSession } from '@/lib/auth';
 
 export async function POST(request: Request) {
   try {
-    console.log('🔐 Login request received');
-
     const body = await request.json();
-    console.log('📧 Email:', body.email);
-
     const { email, password } = body;
 
-    // Validar campos
+    // Validar campos requeridos
     if (!email || !password) {
-      console.log('❌ Missing fields');
       return NextResponse.json(
         { error: 'Email y contraseña son requeridos' },
         { status: 400 }
       );
     }
 
-    console.log('🔍 Buscando usuario...');
-
-    // Buscar usuario
+    // Buscar usuario por email
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -30,39 +23,29 @@ export async function POST(request: Request) {
       },
     });
 
-    console.log('👤 Usuario encontrado:', user ? 'Sí' : 'No');
-
+    // Si no existe el usuario, retornar error genérico
     if (!user) {
-      console.log('❌ Usuario no encontrado');
       return NextResponse.json(
-        { error: 'Credenciales inválidas' },
+        { error: 'Email o contraseña incorrectos' },
         { status: 401 }
       );
     }
 
-    console.log('🔑 Verificando contraseña...');
-
-    // Verificar contraseña
+    // Verificar contraseña con bcrypt
     const isValid = await verifyPassword(password, user.password);
 
-    console.log('🔑 Contraseña válida:', isValid);
-
+    // Si la contraseña no es válida, retornar error genérico
     if (!isValid) {
-      console.log('❌ Contraseña incorrecta');
       return NextResponse.json(
-        { error: 'Credenciales inválidas' },
+        { error: 'Email o contraseña incorrectos' },
         { status: 401 }
       );
     }
 
-    console.log('✅ Creando sesión...');
-
-    // Crear sesión
+    // Crear sesión JWT
     const session = await createSession(user.id);
 
-    console.log('✅ Sesión creada:', session.id);
-
-    // Preparar respuesta
+    // Preparar respuesta con datos del usuario y token
     const response = NextResponse.json({
       user: {
         id: user.id,
@@ -74,7 +57,7 @@ export async function POST(request: Request) {
       token: session.token,
     });
 
-    // Establecer cookie
+    // Establecer cookie httpOnly segura
     response.cookies.set('auth_token', session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -83,13 +66,9 @@ export async function POST(request: Request) {
       path: '/',
     });
 
-    console.log('✅ Login exitoso');
-
     return response;
   } catch (error: any) {
-    console.error('❌ ERROR EN LOGIN:', error);
-    console.error('Stack:', error.stack);
-    console.error('Message:', error.message);
+    console.error('Error en login:', error);
 
     return NextResponse.json(
       {
