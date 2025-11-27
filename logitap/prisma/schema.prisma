@@ -183,17 +183,18 @@ model Delivery {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      UserRole @default(DRIVER)
-  driverId  String?  @unique
-  driver    Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  name        String
+  role        UserRole @default(DRIVER)
+  driverId    String?  @unique
+  driver      Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  sessions  Session[]
+  sessions    Session[]
+  resetTokens PasswordResetToken[]
 
   @@index([email])
   @@index([role])
@@ -216,4 +217,18 @@ model Session {
   @@index([token])
   @@index([userId])
   @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+  @@map("password_reset_tokens")
 }
