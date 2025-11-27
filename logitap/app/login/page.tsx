@@ -109,6 +109,12 @@ export default function LoginPage() {
             >
               Iniciar Sesión
             </Button>
+
+            <div className={styles.forgotPassword}>
+              <a href="/forgot-password" className={styles.forgotPasswordLink}>
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
           </form>
         </Card>
 
