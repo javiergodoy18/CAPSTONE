@@ -125,7 +125,142 @@ npm run seed         # Cargar datos de prueba
 ## 🔐 Variables de Entorno Requeridas
 ```env
 DATABASE_URL=            # URL de conexión a PostgreSQL
+DIRECT_URL=             # URL directa para migraciones
+NEXTAUTH_SECRET=        # Secreto para tokens de sesión
+NEXTAUTH_URL=           # URL base de la aplicación (ej: http://localhost:3000)
 ```
+
+## 🔒 Sistema de Autenticación
+
+### Credenciales de Prueba
+
+El sistema incluye usuarios de prueba para desarrollo:
+
+#### Administrador
+```
+Email:    admin@logitap.com
+Password: Admin123!
+```
+
+#### Conductores
+```
+Conductor 1:
+  Email:    conductor1@logitap.com
+  Password: Conductor123!
+
+Conductor 2:
+  Email:    conductor2@logitap.com
+  Password: Conductor123!
+```
+
+### Características de Seguridad
+
+✅ **Autenticación con bcrypt**
+- Contraseñas hasheadas con bcrypt (cost factor 10)
+- Tokens de sesión seguros con cookies httpOnly
+- Expiración de sesiones (7 días)
+
+✅ **Recuperación de Contraseña**
+- Sistema completo de recuperación vía email
+- Tokens únicos generados con crypto
+- Expiración de tokens (1 hora)
+- Tokens de un solo uso
+
+✅ **Validación de Contraseñas**
+- Mínimo 8 caracteres
+- Al menos 1 letra mayúscula
+- Al menos 1 número
+
+✅ **Rate Limiting**
+- Máximo 5 intentos de login por IP
+- Ventana de 15 minutos
+- Protección contra fuerza bruta
+
+✅ **Mensajes Genéricos**
+- No revela si un email existe en el sistema
+- Previene enumeración de usuarios
+
+### Flujo de Recuperación de Contraseña
+
+1. Usuario hace clic en "¿Olvidaste tu contraseña?" en `/login`
+2. Ingresa su email en `/forgot-password`
+3. Sistema genera token y muestra link en consola (desarrollo)
+4. Usuario accede al link `/reset-password/[token]`
+5. Ingresa nueva contraseña (validación en tiempo real)
+6. Sistema actualiza contraseña y marca token como usado
+
+### Scripts de Utilidad
+
+#### Listar Usuarios
+```bash
+npx tsx scripts/list-users.ts
+```
+Muestra todos los usuarios sin contraseñas.
+
+#### Crear Usuarios de Prueba
+```bash
+npx tsx scripts/seed-test-users.ts
+```
+Crea/actualiza los 3 usuarios de prueba (admin + 2 conductores).
+
+#### Reset Manual de Contraseña
+```bash
+npx tsx scripts/reset-user-password.ts <email> <nuevaContraseña>
+```
+
+Ejemplo:
+```bash
+npx tsx scripts/reset-user-password.ts admin@logitap.com NuevaPass123!
+```
+
+**Requisitos de contraseña:**
+- Mínimo 8 caracteres
+- Al menos 1 mayúscula
+- Al menos 1 número
+
+### Roles de Usuario
+
+- **ADMIN**: Acceso completo al sistema (dashboard, gestión de recursos)
+- **DRIVER**: Acceso limitado (ver viajes asignados, actualizar estados)
+
+### Arquitectura de Autenticación
+
+```
+app/
+├── api/auth/
+│   ├── login/              # Endpoint de login
+│   ├── logout/             # Endpoint de logout
+│   ├── register/           # Endpoint de registro
+│   ├── me/                 # Obtener usuario actual
+│   ├── forgot-password/    # Solicitar recuperación
+│   ├── validate-reset-token/ # Validar token de reset
+│   └── reset-password/     # Restablecer contraseña
+├── login/                  # Página de login
+├── forgot-password/        # Página solicitud recuperación
+└── reset-password/[token]/ # Página reset contraseña
+
+lib/
+├── auth.ts                 # Funciones de autenticación
+├── passwordValidation.ts   # Validación de contraseñas
+└── rateLimit.ts            # Sistema de rate limiting
+
+prisma/schema.prisma:
+├── User                    # Modelo de usuario
+├── Session                 # Sesiones activas
+└── PasswordResetToken      # Tokens de recuperación
+```
+
+### Desarrollo - Configuración de Email (Futuro)
+
+Actualmente, los links de recuperación se muestran en la consola del servidor (desarrollo).
+
+Para producción, integrar servicio de email:
+- SendGrid
+- Amazon SES
+- Resend
+- Mailgun
+
+Actualizar `/api/auth/forgot-password/route.ts` para enviar emails reales.
 
 ## 👨‍💻 Desarrollo
 
