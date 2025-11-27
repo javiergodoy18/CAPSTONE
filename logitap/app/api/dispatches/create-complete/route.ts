@@ -14,20 +14,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validar campos requeridos del dispatch
+    if (!body.dispatchNumber || !body.vehicleId || !body.driverId || !body.scheduledStartDate) {
+      return NextResponse.json(
+        { error: "Faltan campos requeridos: número de viaje, vehículo, conductor y fecha de inicio" },
+        { status: 400 }
+      );
+    }
+
     // Crear el despacho con pickups y deliveries en una transacción
     const dispatch = await prisma.$transaction(async (tx) => {
       // 1. Crear el despacho
       const newDispatch = await tx.dispatch.create({
         data: {
-          dispatchNumber: body.dispatch.dispatchNumber,
-          vehicleId: body.dispatch.vehicleId,
-          driverId: body.dispatch.driverId,
-          scheduledStartDate: new Date(body.dispatch.scheduledStartDate),
-          scheduledEndDate: body.dispatch.scheduledEndDate
-            ? new Date(body.dispatch.scheduledEndDate)
+          dispatchNumber: body.dispatchNumber,
+          vehicleId: body.vehicleId,
+          driverId: body.driverId,
+          scheduledStartDate: new Date(body.scheduledStartDate),
+          scheduledEndDate: body.scheduledEndDate
+            ? new Date(body.scheduledEndDate)
             : null,
           status: 'scheduled',
-          generalNotes: body.dispatch.generalNotes,
+          generalNotes: body.generalNotes || null,
         },
       });
 
@@ -113,10 +121,25 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(dispatch, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating complete dispatch:", error);
+
+    // Proporcionar mensaje de error más específico
+    let errorMessage = "Error al crear despacho completo";
+
+    if (error.code === 'P2002') {
+      errorMessage = "El número de viaje ya existe";
+    } else if (error.code === 'P2003') {
+      errorMessage = "Error de referencia: verifica que el vehículo, conductor, laboratorios y farmacias existan";
+    } else if (error.message) {
+      errorMessage = `Error: ${error.message}`;
+    }
+
     return NextResponse.json(
-      { error: "Error al crear despacho completo" },
+      {
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
