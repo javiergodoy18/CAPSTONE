@@ -1,9 +1,10 @@
 'use client';
 
 import { useAuth } from '@/app/contexts/AuthContext';
+import { useGoogleMaps } from '@/app/contexts/GoogleMapsContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { GoogleMap, LoadScript, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
+import { GoogleMap, Marker, DirectionsRenderer, InfoWindow } from '@react-google-maps/api';
 
 interface Delivery {
   id: string;
@@ -67,6 +68,7 @@ const mapOptions = {
 
 export default function DriverDispatchDetail({ params }: { params: Promise<{ id: string }> }) {
   const { user, loading: authLoading } = useAuth();
+  const { isLoaded: mapsLoaded, loadError: mapsError } = useGoogleMaps();
   const router = useRouter();
   const [dispatch, setDispatch] = useState<Dispatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -362,9 +364,9 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
   // Centro del mapa
   const defaultCenter = dispatch.pickups[0]?.laboratory.latitude && dispatch.pickups[0]?.laboratory.longitude
     ? {
-        lat: Number(dispatch.pickups[0].laboratory.latitude),
-        lng: Number(dispatch.pickups[0].laboratory.longitude),
-      }
+      lat: Number(dispatch.pickups[0].laboratory.latitude),
+      lng: Number(dispatch.pickups[0].laboratory.longitude),
+    }
     : { lat: -33.4489, lng: -70.6693 };
 
   return (
@@ -539,10 +541,33 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
               🗺️ Mapa de Ruta
             </h3>
 
-            <LoadScript
-              googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}
-              libraries={['places']}
-            >
+            {mapsError && (
+              <div style={{
+                padding: '20px',
+                backgroundColor: '#fee2e2',
+                borderRadius: '16px',
+                color: '#dc2626',
+                textAlign: 'center'
+              }}>
+                ❌ Error al cargar Google Maps. Verifica tu API key.
+              </div>
+            )}
+
+            {!mapsLoaded && !mapsError && (
+              <div style={{
+                height: '600px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(15, 23, 42, 0.5)',
+                borderRadius: '16px',
+                color: '#94a3b8'
+              }}>
+                Cargando mapa...
+              </div>
+            )}
+
+            {mapsLoaded && (
               <GoogleMap
                 mapContainerStyle={mapContainerStyle}
                 center={currentLocation || defaultCenter}
@@ -602,8 +627,8 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
 
                   const iconColor =
                     delivery.status === 'delivered' ? 'green' :
-                    delivery.status === 'failed' ? 'red' :
-                    'yellow';
+                      delivery.status === 'failed' ? 'red' :
+                        'yellow';
 
                   return (
                     <Marker
@@ -633,11 +658,11 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
                               fontSize: '0.75rem',
                               fontWeight: '600',
                               color: delivery.status === 'delivered' ? '#22c55e' :
-                                     delivery.status === 'failed' ? '#ef4444' : '#f59e0b'
+                                delivery.status === 'failed' ? '#ef4444' : '#f59e0b'
                             }}>
                               {delivery.status === 'delivered' ? '✓ Entregado' :
-                               delivery.status === 'failed' ? '✗ Fallido' :
-                               '⏳ Pendiente'}
+                                delivery.status === 'failed' ? '✗ Fallido' :
+                                  '⏳ Pendiente'}
                             </p>
                           </div>
                         </InfoWindow>
@@ -661,7 +686,7 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
                   />
                 )}
               </GoogleMap>
-            </LoadScript>
+            )}
 
             {/* Leyenda */}
             <div style={{
@@ -774,13 +799,13 @@ export default function DriverDispatchDetail({ params }: { params: Promise<{ id:
                       background: delivery.status === 'delivered'
                         ? 'rgba(34, 197, 94, 0.1)'
                         : delivery.status === 'failed'
-                        ? 'rgba(239, 68, 68, 0.1)'
-                        : 'rgba(15, 23, 42, 0.5)',
+                          ? 'rgba(239, 68, 68, 0.1)'
+                          : 'rgba(15, 23, 42, 0.5)',
                       border: delivery.status === 'delivered'
                         ? '2px solid rgba(34, 197, 94, 0.3)'
                         : delivery.status === 'failed'
-                        ? '2px solid rgba(239, 68, 68, 0.3)'
-                        : '1px solid rgba(71, 85, 105, 0.3)',
+                          ? '2px solid rgba(239, 68, 68, 0.3)'
+                          : '1px solid rgba(71, 85, 105, 0.3)',
                       borderRadius: '12px',
                       marginBottom: '1rem',
                     }}

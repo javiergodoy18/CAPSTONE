@@ -1,7 +1,8 @@
 "use client";
 
-import { useLoadScript, GoogleMap, Marker, DirectionsRenderer } from "@react-google-maps/api";
+import { GoogleMap, Marker, DirectionsRenderer } from "@react-google-maps/api";
 import { useState, useEffect, useMemo } from "react";
+import { useGoogleMaps } from "@/app/contexts/GoogleMapsContext";
 import {
   Location,
   RouteStats,
@@ -36,16 +37,13 @@ interface MapViewProps {
   }>;
 }
 
-const libraries: ("places" | "geometry")[] = ["places", "geometry"];
-
 export default function MapView({ pickups, deliveries }: MapViewProps) {
   // Validación defensiva
   const safePickups = pickups || [];
   const safeDeliveries = deliveries || [];
-  const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-    libraries,
-  });
+
+  // Use centralized Google Maps context
+  const { isLoaded, loadError } = useGoogleMaps();
 
   const [validation, setValidation] = useState<ValidationResult | null>(null);
   const [optimizedOrder, setOptimizedOrder] = useState<number[] | null>(null);

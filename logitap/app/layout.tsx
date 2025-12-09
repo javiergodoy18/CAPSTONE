@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
 import { AuthProvider } from "./contexts/AuthContext";
+import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,10 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <AuthProvider>
-          <Navbar />
-          <main>{children}</main>
+          <GoogleMapsProvider>
+            <Navbar />
+            <main>{children}</main>
+          </GoogleMapsProvider>
         </AuthProvider>
       </body>
     </html>
