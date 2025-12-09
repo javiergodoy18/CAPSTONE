@@ -24,3 +24,4 @@ nul
 
 # Node modules (all directories)
 **/node_modules
+.vercel
