@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "buildCommand": "cd logitap && prisma generate && npm run build",
+  "devCommand": "cd logitap && npm run dev",
+  "installCommand": "cd logitap && npm install",
+  "outputDirectory": "logitap/.next",
+  "framework": "nextjs",
+  "regions": ["iad1"]
+}
