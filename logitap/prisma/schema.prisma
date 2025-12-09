@@ -1,44 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model Vehicle {
-  id           String   @id @default(uuid())
-  plate        String   @unique
-  brand        String
-  model        String
-  year         Int
-  type         String
-  capacity     Float
-  status       String   @default("available")
-  fuelType     String?
-  mileage      Float?
-  lastService  DateTime?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  dispatches   Dispatch[]
+  id          String     @id @default(uuid())
+  plate       String     @unique
+  brand       String
+  model       String
+  year        Int
+  type        String
+  capacity    Float
+  status      String     @default("available")
+  fuelType    String?
+  mileage     Float?
+  lastService DateTime?
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  dispatches  Dispatch[]
 
   @@map("vehicles")
 }
 
 model Driver {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  phone     String
-  license   String
-  status    String   @default("available")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id         String     @id @default(uuid())
+  name       String
+  email      String     @unique
+  phone      String
+  license    String
+  status     String     @default("available")
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
   dispatches Dispatch[]
   user       User?
 
@@ -46,19 +44,18 @@ model Driver {
 }
 
 model Laboratory {
-  id            String     @id @default(uuid())
+  id            String   @id @default(uuid())
   name          String
-  email         String     @unique
+  email         String   @unique
   phone         String
   address       String
   city          String
   contactPerson String?
-  businessType  String     @default("laboratory")
+  businessType  String   @default("laboratory")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   latitude      Float?
   longitude     Float?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
-
   pickups       Pickup[]
 
   @@map("laboratories")
@@ -73,146 +70,118 @@ model Pharmacy {
   address       String
   city          String
   contactPerson String
-  latitude      Float?
-  longitude     Float?
-  deliveryZone  String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-
+  deliveryZone  String?
+  latitude      Float?
+  longitude     Float?
   deliveries    Delivery[]
 
   @@map("pharmacies")
 }
 
 model Dispatch {
-  id                    String    @id @default(uuid())
-  dispatchNumber        String    @unique
-
+  id                    String     @id @default(uuid())
+  dispatchNumber        String     @unique
   vehicleId             String?
-  vehicle               Vehicle?   @relation(fields: [vehicleId], references: [id])
-
   driverId              String?
-  driver                Driver?    @relation(fields: [driverId], references: [id])
-
-  scheduledStartDate    DateTime
-  scheduledEndDate      DateTime?
-  actualStartDate       DateTime?
-  actualEndDate         DateTime?
-
-  status                String    @default("scheduled")
-
-  totalMerchandiseValue Float     @default(0)
-  totalIncome           Float     @default(0)
-
+  status                String     @default("scheduled")
   generalNotes          String?
-
-  pickups               Pickup[]
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  actualEndDate         DateTime?
+  actualStartDate       DateTime?
+  scheduledEndDate      DateTime?
+  scheduledStartDate    DateTime
+  totalIncome           Float      @default(0)
+  totalMerchandiseValue Float      @default(0)
   deliveries            Delivery[]
-
-  createdAt             DateTime  @default(now())
-  updatedAt             DateTime  @updatedAt
+  driver                Driver?    @relation(fields: [driverId], references: [id])
+  vehicle               Vehicle?   @relation(fields: [vehicleId], references: [id])
+  pickups               Pickup[]
 
   @@map("dispatches")
 }
 
 model Pickup {
-  id                String      @id @default(uuid())
-
+  id                String     @id @default(uuid())
   dispatchId        String
-  dispatch          Dispatch    @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
-
   laboratoryId      String
-  laboratory        Laboratory  @relation(fields: [laboratoryId], references: [id])
-
   pickupAddress     String
   pickupDate        DateTime
   actualPickupTime  DateTime?
-
-  merchandiseValue  Float       @default(0)
+  merchandiseValue  Float      @default(0)
   dispatchCost      Float?
-  pricingType       String      @default("percentage")
+  pricingType       String     @default("percentage")
   percentageApplied Float?
   customPrice       Float?
-
   pickupNotes       String?
-
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
   deliveries        Delivery[]
-
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  dispatch          Dispatch   @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  laboratory        Laboratory @relation(fields: [laboratoryId], references: [id])
 
   @@map("pickups")
 }
 
 model Delivery {
-  id                String    @id @default(uuid())
-
-  dispatchId        String
-  dispatch          Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
-
-  pickupId          String
-  pickup            Pickup    @relation(fields: [pickupId], references: [id], onDelete: Cascade)
-
-  pharmacyId        String
-  pharmacy          Pharmacy  @relation(fields: [pharmacyId], references: [id])
-
-  invoiceNumber     String
-  merchandiseValue  Float
-
-  orderInRoute      Int       @default(0)
-  actualOrder       Int?
-
-  productType       String    @default("medicamentos")
-  weight            Float?
-  packages          Int?
-
-  latitude          Float?
-  longitude         Float?
-
-  status            String    @default("pending")
-
-  deliveredAt       DateTime?
-  deliveryNotes     String?
-  deliveryProof     String?
-  recipientName     String?
-
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  dispatchId         String
+  pharmacyId         String
+  invoiceNumber      String
+  merchandiseValue   Float
+  orderInRoute       Int       @default(0)
+  actualOrder        Int?
+  productType        String    @default("medicamentos")
+  weight             Float?
+  packages           Int?
+  latitude           Float?
+  longitude          Float?
+  status             String    @default("pending")
+  deliveredAt        DateTime?
+  deliveryNotes      String?
+  deliveryProof      String?
+  recipientName      String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  pickupId           String
+  isCustomPricing    Boolean   @default(false)
+  customPriceConcept String?
+  customPriceAmount  Float?
+  dispatch           Dispatch  @relation(fields: [dispatchId], references: [id], onDelete: Cascade)
+  pharmacy           Pharmacy  @relation(fields: [pharmacyId], references: [id])
+  pickup             Pickup    @relation(fields: [pickupId], references: [id], onDelete: Cascade)
 
   @@map("deliveries")
 }
 
 model User {
-  id          String   @id @default(uuid())
-  email       String   @unique
-  password    String
-  name        String
-  role        UserRole @default(DRIVER)
-  driverId    String?  @unique
-  driver      Driver?  @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  sessions    Session[]
-  resetTokens PasswordResetToken[]
+  id           String               @id @default(uuid())
+  email        String               @unique
+  password     String
+  name         String
+  role         UserRole             @default(DRIVER)
+  driverId     String?              @unique
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  profileImage String?
+  resetTokens  PasswordResetToken[]
+  sessions     Session[]
+  driver       Driver?              @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   @@index([email])
   @@index([role])
   @@map("users")
 }
 
-enum UserRole {
-  ADMIN
-  DRIVER
-}
-
 model Session {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
@@ -222,13 +191,18 @@ model Session {
 model PasswordResetToken {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   expiresAt DateTime
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+enum UserRole {
+  ADMIN
+  DRIVER
 }

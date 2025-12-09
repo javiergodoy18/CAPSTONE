@@ -16,6 +16,9 @@ interface Delivery {
   productType: 'farmaceutico' | 'cosmetico' | 'alimentos' | 'otro';
   deliveryDate?: string;
   deliveryAddress?: string;
+  isCustomPricing?: boolean;
+  customPriceConcept?: string;
+  customPriceAmount?: number;
 }
 
 interface Pickup {
@@ -23,10 +26,15 @@ interface Pickup {
   laboratoryId: string;
   pickupAddress: string;
   pickupDate: string;
+  pickupNotes?: string;
+  pricingType?: 'percentage' | 'custom';
+  customPrice?: number;
+  customPriceConcept?: string;
   deliveries: Delivery[];
 }
 
 interface FormData {
+  dispatchNumber: string;
   vehicleId: string;
   driverId: string;
   scheduledStartDate: string;
@@ -52,6 +60,7 @@ export default function EditDispatch() {
   const [pharmacies, setPharmacies] = useState<any[]>([]);
 
   const [formData, setFormData] = useState<FormData>({
+    dispatchNumber: '',
     vehicleId: '',
     driverId: '',
     scheduledStartDate: '',
@@ -74,8 +83,18 @@ export default function EditDispatch() {
 
       // Load dispatch data
       const dispatchRes = await fetch(`/api/dispatches/${dispatchId}`);
-      if (!dispatchRes.ok) throw new Error('Error al cargar el viaje');
+      if (!dispatchRes.ok) {
+        console.error('Error response:', dispatchRes.status);
+        throw new Error('Error al cargar el viaje');
+      }
+
       const dispatch = await dispatchRes.json();
+      console.log('Dispatch loaded:', dispatch);
+
+      // Verificar estructura
+      if (!dispatch || !dispatch.pickups) {
+        throw new Error('Datos inválidos del servidor');
+      }
 
       // Load reference data
       const [vehiclesRes, driversRes, labsRes, pharmsRes] = await Promise.all([
@@ -92,10 +111,10 @@ export default function EditDispatch() {
         pharmsRes.json(),
       ]);
 
-      setVehicles(vehiclesData);
-      setDrivers(driversData);
-      setLaboratories(labsData);
-      setPharmacies(pharmsData);
+      setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
+      setDrivers(Array.isArray(driversData) ? driversData : []);
+      setLaboratories(Array.isArray(labsData) ? labsData : []);
+      setPharmacies(Array.isArray(pharmsData) ? pharmsData : []);
 
       // Transform dispatch data to form format
       const pickups = dispatch.pickups?.map((pickup: any) => ({
@@ -103,6 +122,9 @@ export default function EditDispatch() {
         laboratoryId: pickup.laboratoryId,
         pickupAddress: pickup.pickupAddress || '',
         pickupDate: pickup.pickupDate ? new Date(pickup.pickupDate).toISOString().slice(0, 16) : '',
+        pricingType: pickup.pricingType || 'percentage',
+        customPrice: pickup.customPrice || undefined,
+        customPriceConcept: pickup.customPriceConcept || '',
         deliveries: pickup.deliveries?.map((delivery: any) => ({
           id: delivery.id,
           pharmacyId: delivery.pharmacyId,
@@ -115,13 +137,14 @@ export default function EditDispatch() {
       })) || [];
 
       setFormData({
+        dispatchNumber: dispatch.dispatchNumber || '',
         vehicleId: dispatch.vehicleId || '',
         driverId: dispatch.driverId || '',
         scheduledStartDate: dispatch.scheduledStartDate ? new Date(dispatch.scheduledStartDate).toISOString().slice(0, 16) : '',
         scheduledEndDate: dispatch.scheduledEndDate ? new Date(dispatch.scheduledEndDate).toISOString().slice(0, 16) : '',
         estimatedDistance: dispatch.estimatedDistance || 0,
         estimatedDuration: dispatch.estimatedDuration || 0,
-        notes: dispatch.notes || '',
+        notes: dispatch.generalNotes || '',
         pickups,
       });
     } catch (err) {
@@ -140,18 +163,27 @@ export default function EditDispatch() {
   }
 
   function updatePickup(index: number, field: string, value: any) {
-    const updated = [...formData.pickups];
-    updated[index] = { ...updated[index], [field]: value };
-    setFormData({ ...formData, pickups: updated });
+    console.log('🔍 updatePickup called:', { index, field, value });
+    setFormData((prevFormData) => {
+      console.log('📊 Previous pickups count:', prevFormData.pickups.length);
+      const updated = [...prevFormData.pickups];
+      updated[index] = { ...updated[index], [field]: value };
+      console.log('✅ Updated pickup:', updated[index]);
+      return { ...prevFormData, pickups: updated };
+    });
   }
 
   function updateDelivery(pickupIndex: number, deliveryIndex: number, field: string, value: any) {
-    const updated = [...formData.pickups];
-    updated[pickupIndex].deliveries[deliveryIndex] = {
-      ...updated[pickupIndex].deliveries[deliveryIndex],
-      [field]: value,
-    };
-    setFormData({ ...formData, pickups: updated });
+    console.log('📝 Update Delivery:', { pickupIndex, deliveryIndex, field, value });
+
+    setFormData((prevFormData) => {
+      const updated = [...prevFormData.pickups];
+      updated[pickupIndex].deliveries[deliveryIndex] = {
+        ...updated[pickupIndex].deliveries[deliveryIndex],
+        [field]: value,
+      };
+      return { ...prevFormData, pickups: updated };
+    });
   }
 
   function addPickup() {
@@ -163,6 +195,9 @@ export default function EditDispatch() {
           laboratoryId: '',
           pickupAddress: '',
           pickupDate: formData.scheduledStartDate,
+          pricingType: 'percentage',
+          customPrice: undefined,
+          customPriceConcept: '',
           deliveries: [],
         },
       ],
@@ -181,8 +216,41 @@ export default function EditDispatch() {
       invoiceNumber: '',
       merchandiseValue: 0,
       productType: 'farmaceutico',
+      isCustomPricing: false,
+      customPriceConcept: '',
+      customPriceAmount: 0,
     });
     setFormData({ ...formData, pickups: updated });
+  }
+
+  function toggleCustomPricing(pickupIndex: number, deliveryIndex: number) {
+    setFormData((prevFormData) => {
+      const updatedPickups = [...prevFormData.pickups];
+      const pickup = updatedPickups[pickupIndex];
+      const delivery = pickup.deliveries[deliveryIndex];
+
+      const newIsCustom = !delivery.isCustomPricing;
+
+      // Log para debugging
+      console.log('🔄 Toggle Custom Pricing:', {
+        pickupIndex,
+        deliveryIndex,
+        oldValue: delivery.isCustomPricing,
+        newValue: newIsCustom
+      });
+
+      pickup.deliveries[deliveryIndex] = {
+        ...delivery,
+        isCustomPricing: newIsCustom,
+        // Limpiar valores al desactivar
+        customPriceConcept: newIsCustom ? delivery.customPriceConcept : '',
+        customPriceAmount: newIsCustom ? delivery.customPriceAmount : undefined,
+        // Limpiar merchandiseValue al activar
+        merchandiseValue: newIsCustom ? 0 : delivery.merchandiseValue,
+      };
+
+      return { ...prevFormData, pickups: updatedPickups };
+    });
   }
 
   function removeDelivery(pickupIndex: number, deliveryIndex: number) {
@@ -213,6 +281,21 @@ export default function EditDispatch() {
             if (!delivery.pharmacyId) {
               newErrors[`delivery_${pIndex}_${dIndex}_pharmacy`] = 'Seleccione una farmacia';
             }
+
+            // Validación para delivery con custom pricing
+            if (delivery.isCustomPricing) {
+              if (!delivery.customPriceConcept || !delivery.customPriceConcept.trim()) {
+                newErrors[`pickup_${pIndex}_delivery_${dIndex}_concept`] = 'El concepto es requerido';
+              }
+              if (!delivery.customPriceAmount || delivery.customPriceAmount <= 0) {
+                newErrors[`pickup_${pIndex}_delivery_${dIndex}_customPrice`] = 'El precio debe ser mayor a 0';
+              }
+            } else {
+              // Validación normal - el merchandiseValue es requerido
+              if (!delivery.merchandiseValue || delivery.merchandiseValue <= 0) {
+                newErrors[`pickup_${pIndex}_delivery_${dIndex}_value`] = 'El valor es requerido';
+              }
+            }
           });
         }
       });
@@ -234,10 +317,39 @@ export default function EditDispatch() {
       setSubmitting(true);
       setError(null);
 
-      const response = await fetch(`/api/dispatches/${dispatchId}`, {
+      // Restructure data for update-complete endpoint
+      const requestBody = {
+        dispatch: {
+          dispatchNumber: formData.dispatchNumber,
+          vehicleId: formData.vehicleId,
+          driverId: formData.driverId,
+          scheduledStartDate: formData.scheduledStartDate,
+          scheduledEndDate: formData.scheduledEndDate,
+          generalNotes: formData.notes,
+        },
+        pickups: formData.pickups.map((pickup) => ({
+          laboratoryId: pickup.laboratoryId,
+          pickupAddress: pickup.pickupAddress,
+          pickupDate: pickup.pickupDate,
+          pickupNotes: pickup.pickupNotes,
+          deliveries: pickup.deliveries.map((d) => ({
+            pharmacyId: d.pharmacyId,
+            invoiceNumber: d.invoiceNumber,
+            productType: d.productType,
+
+            // Campos de custom pricing a nivel de delivery
+            isCustomPricing: d.isCustomPricing || false,
+            customPriceConcept: d.isCustomPricing ? d.customPriceConcept : null,
+            customPriceAmount: d.isCustomPricing ? Number(d.customPriceAmount) : null,
+            merchandiseValue: d.isCustomPricing ? 0 : Number(d.merchandiseValue) || 0,
+          })),
+        })),
+      };
+
+      const response = await fetch(`/api/dispatches/${dispatchId}/update-complete`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -316,7 +428,7 @@ export default function EditDispatch() {
                   { value: '', label: 'Seleccione un conductor' },
                   ...drivers.map((d) => ({
                     value: d.id,
-                    label: `${d.firstName} ${d.lastName}`,
+                    label: d.name,
                   })),
                 ]}
               />
@@ -394,7 +506,7 @@ export default function EditDispatch() {
           {formData.pickups.length === 0 ? (
             <div className={styles.emptyPickups}>
               <p>No hay recolecciones agregadas</p>
-              <p style={{ fontSize: '0.9rem' }}>Haga clic en "Agregar Recolección" para comenzar</p>
+              <p style={{ fontSize: '0.9rem' }}>Haga clic en &quot;Agregar Recolección&quot; para comenzar</p>
             </div>
           ) : (
             <div className={styles.pickupsList}>
@@ -402,7 +514,7 @@ export default function EditDispatch() {
                 const selectedLab = laboratories.find((l) => l.id === pickup.laboratoryId);
 
                 return (
-                  <div key={pIndex} className={styles.pickupCard}>
+                  <div key={pickup.id || `new-pickup-${pIndex}`} className={styles.pickupCard}>
                     <div className={styles.pickupHeader}>
                       <h3 className={styles.pickupTitle}>Recolección #{pIndex + 1}</h3>
                       <Button
@@ -425,11 +537,25 @@ export default function EditDispatch() {
                           icon="🏭"
                           value={pickup.laboratoryId}
                           onChange={(e) => {
-                            updatePickup(pIndex, 'laboratoryId', e.target.value);
-                            const lab = laboratories.find((l) => l.id === e.target.value);
-                            if (lab) {
-                              updatePickup(pIndex, 'pickupAddress', lab.address || '');
-                            }
+                            console.log('🏭 Laboratory selector onChange fired!');
+                            console.log('📍 Pickup index:', pIndex);
+                            console.log('📦 Selected lab ID:', e.target.value);
+
+                            const labId = e.target.value;
+                            const lab = laboratories.find((l) => l.id === labId);
+                            console.log('🔎 Found laboratory:', lab?.name || 'Not found');
+
+                            // Update both laboratoryId and pickupAddress in a single state update
+                            setFormData((prevFormData) => {
+                              const updated = [...prevFormData.pickups];
+                              updated[pIndex] = {
+                                ...updated[pIndex],
+                                laboratoryId: labId,
+                                pickupAddress: lab?.address || updated[pIndex].pickupAddress
+                              };
+                              console.log('💾 State updated for pickup #', pIndex + 1);
+                              return { ...prevFormData, pickups: updated };
+                            });
                           }}
                           error={!!errors[`pickup_${pIndex}_lab`]}
                           options={[
@@ -497,7 +623,14 @@ export default function EditDispatch() {
                               </button>
                             </div>
 
-                            <div className={styles.deliveryGrid}>
+                            {/* GRID DE 4 COLUMNAS - Farmacia, Nro Factura, Valor, Tipo */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr',
+                              gap: '1rem',
+                              marginBottom: '1rem',
+                            }}>
+                              {/* Columna 1: Farmacia */}
                               <FormField
                                 label="Farmacia"
                                 required
@@ -524,40 +657,59 @@ export default function EditDispatch() {
                                 />
                               </FormField>
 
+                              {/* Columna 2: Nro. Factura */}
                               <FormField label="Nro. Factura">
                                 <Input
                                   icon="📄"
                                   type="text"
                                   placeholder="F-12345"
-                                  value={delivery.invoiceNumber}
+                                  value={delivery.invoiceNumber || ''}
                                   onChange={(e) =>
                                     updateDelivery(pIndex, dIndex, 'invoiceNumber', e.target.value)
                                   }
                                 />
                               </FormField>
 
-                              <FormField label="Valor ($)">
+                              {/* Columna 3: Valor ($) - SIN BOTÓN AQUÍ */}
+                              <FormField
+                                label="Valor ($)"
+                                required={!delivery.isCustomPricing}
+                              >
                                 <Input
                                   icon="💰"
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="0.00"
-                                  value={delivery.merchandiseValue}
-                                  onChange={(e) =>
-                                    updateDelivery(
-                                      pIndex,
-                                      dIndex,
-                                      'merchandiseValue',
-                                      parseFloat(e.target.value) || 0
-                                    )
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={delivery.merchandiseValue === 0 || !delivery.merchandiseValue
+                                    ? ''
+                                    : String(delivery.merchandiseValue)
                                   }
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    console.log('💵 Valor input:', value);
+
+                                    if (value === '') {
+                                      updateDelivery(pIndex, dIndex, 'merchandiseValue', '');
+                                      return;
+                                    }
+
+                                    if (/^\d*\.?\d*$/.test(value)) {
+                                      updateDelivery(pIndex, dIndex, 'merchandiseValue', value);
+                                    }
+                                  }}
+                                  placeholder="0"
+                                  disabled={delivery.isCustomPricing}
+                                  style={{
+                                    opacity: delivery.isCustomPricing ? 0.6 : 1,
+                                    cursor: delivery.isCustomPricing ? 'not-allowed' : 'text',
+                                  }}
                                 />
                               </FormField>
 
+                              {/* Columna 4: Tipo de Producto */}
                               <FormField label="Tipo de Producto">
                                 <Select
                                   icon="📦"
-                                  value={delivery.productType}
+                                  value={delivery.productType || 'farmaceutico'}
                                   onChange={(e) =>
                                     updateDelivery(pIndex, dIndex, 'productType', e.target.value)
                                   }
@@ -570,6 +722,146 @@ export default function EditDispatch() {
                                 />
                               </FormField>
                             </div>
+
+                            {/* BOTÓN PERSONALIZADO - EN SU PROPIA FILA */}
+                            <div style={{
+                              marginBottom: '1.5rem',
+                              display: 'flex',
+                              justifyContent: 'flex-start',
+                            }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  console.log('🔧 Click Personalizado - Delivery:', dIndex);
+                                  toggleCustomPricing(pIndex, dIndex);
+                                }}
+                                style={{
+                                  padding: '0.75rem 1.5rem',
+                                  borderRadius: '8px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.625rem',
+                                  border: delivery.isCustomPricing
+                                    ? '2px solid #f97316'
+                                    : '2px solid #4b5563',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  backgroundColor: delivery.isCustomPricing
+                                    ? '#f97316'
+                                    : 'rgba(75, 85, 99, 0.2)',
+                                  color: delivery.isCustomPricing ? 'white' : '#9ca3af',
+                                  fontWeight: '500',
+                                  fontSize: '0.875rem',
+                                  minWidth: '160px',
+                                  boxShadow: delivery.isCustomPricing
+                                    ? '0 4px 12px rgba(249, 115, 22, 0.3)'
+                                    : 'none',
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!delivery.isCustomPricing) {
+                                    e.currentTarget.style.borderColor = '#6b7280';
+                                    e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 0.2)';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!delivery.isCustomPricing) {
+                                    e.currentTarget.style.borderColor = '#4b5563';
+                                    e.currentTarget.style.backgroundColor = 'rgba(75, 85, 99, 0.2)';
+                                  }
+                                }}
+                              >
+                                <span style={{ fontSize: '1.25rem' }}>
+                                  {delivery.isCustomPricing ? '✓' : '🔧'}
+                                </span>
+                                <span>{delivery.isCustomPricing ? 'Usando Precio Personalizado' : 'Usar Precio Personalizado'}</span>
+                              </button>
+                            </div>
+
+                            {/* CAMPOS PERSONALIZADOS - Cuando está activo */}
+                            {delivery.isCustomPricing && (
+                              <div style={{
+                                marginBottom: '1.5rem',
+                                padding: '1.25rem',
+                                borderLeft: '4px solid #f97316',
+                                background: 'linear-gradient(to right, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.02))',
+                                borderRadius: '0 8px 8px 0',
+                              }}>
+                                {/* Warning */}
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.75rem',
+                                  padding: '0.875rem 1rem',
+                                  marginBottom: '1.25rem',
+                                  background: 'rgba(251, 191, 36, 0.15)',
+                                  border: '1px solid rgba(251, 191, 36, 0.3)',
+                                  borderRadius: '8px',
+                                  color: '#fbbf24',
+                                  fontSize: '0.875rem',
+                                }}>
+                                  <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                                  <span>
+                                    Este precio <strong>NO</strong> usará el valor de mercadería ingresado arriba
+                                  </span>
+                                </div>
+
+                                {/* Grid de 2 columnas para Concepto y Precio */}
+                                <div style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '1.5fr 1fr',
+                                  gap: '1.25rem',
+                                }}>
+                                  {/* Concepto */}
+                                  <FormField
+                                    label="Concepto del Precio Personalizado"
+                                    required
+                                    error={errors?.[`pickup_${pIndex}_delivery_${dIndex}_concept`]}
+                                  >
+                                    <Input
+                                      icon="📝"
+                                      type="text"
+                                      placeholder="Ej: Servicio express, Carga frágil"
+                                      value={delivery.customPriceConcept || ''}
+                                      onChange={(e) => {
+                                        console.log('📝 Concepto:', e.target.value);
+                                        updateDelivery(pIndex, dIndex, 'customPriceConcept', e.target.value);
+                                      }}
+                                    />
+                                  </FormField>
+
+                                  {/* Precio Personalizado */}
+                                  <FormField
+                                    label="Precio Personalizado ($)"
+                                    required
+                                    error={errors?.[`pickup_${pIndex}_delivery_${dIndex}_customPrice`]}
+                                  >
+                                    <Input
+                                      icon="💵"
+                                      type="text"
+                                      inputMode="decimal"
+                                      placeholder="50000"
+                                      value={delivery.customPriceAmount === 0 || !delivery.customPriceAmount
+                                        ? ''
+                                        : String(delivery.customPriceAmount)
+                                      }
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        console.log('💵 Precio personalizado:', value);
+
+                                        if (value === '') {
+                                          updateDelivery(pIndex, dIndex, 'customPriceAmount', '');
+                                          return;
+                                        }
+
+                                        if (/^\d*\.?\d*$/.test(value)) {
+                                          updateDelivery(pIndex, dIndex, 'customPriceAmount', value);
+                                        }
+                                      }}
+                                    />
+                                  </FormField>
+                                </div>
+                              </div>
+                            )}
 
                             {selectedPharm && (
                               <div className={styles.addressHint}>

@@ -51,8 +51,6 @@ export async function POST(request: Request) {
         pickupAddress: body.pickupAddress,
         pickupDate: new Date(body.pickupDate),
         merchandiseValue: body.merchandiseValue || 0,
-        pricingType: body.pricingType || 'percentage',
-        customPrice: body.customPrice,
         pickupNotes: body.pickupNotes,
       },
       include: {
@@ -61,8 +59,8 @@ export async function POST(request: Request) {
       },
     });
 
-    // Calcular costo automáticamente si es por porcentaje
-    if (pickup.pricingType === 'percentage' && pickup.merchandiseValue > 0) {
+    // Calcular costo automáticamente (siempre usa porcentaje)
+    if (pickup.merchandiseValue > 0) {
       const pricing = calculateDispatchCost(pickup.merchandiseValue);
 
       await prisma.pickup.update({

@@ -43,6 +43,9 @@ interface Delivery {
   weight?: number;
   packages?: number;
   deliveryNotes?: string;
+  isCustomPricing?: boolean;
+  customPriceConcept?: string;
+  customPriceAmount?: number;
 }
 
 interface Pickup {
@@ -139,8 +142,44 @@ export default function NewDispatchPage() {
       weight: 0,
       packages: 1,
       deliveryNotes: '',
+      isCustomPricing: false,
+      customPriceConcept: '',
+      customPriceAmount: 0,
     });
     setPickups(updated);
+  }
+
+  function toggleCustomPricing(pickupIndex: number, deliveryIndex: number) {
+    setPickups(prev => prev.map((pickup, pIdx) => {
+      if (pIdx !== pickupIndex) return pickup;
+
+      return {
+        ...pickup,
+        deliveries: pickup.deliveries.map((delivery, dIdx) => {
+          if (dIdx !== deliveryIndex) return delivery;
+
+          const newIsCustom = !delivery.isCustomPricing;
+
+          // Log para debugging
+          console.log('🔄 Toggle Custom Pricing:', {
+            pickupIndex,
+            deliveryIndex,
+            oldValue: delivery.isCustomPricing,
+            newValue: newIsCustom
+          });
+
+          return {
+            ...delivery,
+            isCustomPricing: newIsCustom,
+            // Limpiar valores al desactivar
+            customPriceConcept: newIsCustom ? delivery.customPriceConcept : '',
+            customPriceAmount: newIsCustom ? delivery.customPriceAmount : undefined,
+            // Limpiar merchandiseValue al activar
+            merchandiseValue: newIsCustom ? 0 : delivery.merchandiseValue,
+          };
+        }),
+      };
+    }));
   }
 
   function removeDelivery(pickupIndex: number, deliveryIndex: number) {
@@ -152,6 +191,8 @@ export default function NewDispatchPage() {
   }
 
   function updateDelivery(pickupIndex: number, deliveryIndex: number, field: string, value: any) {
+    console.log('📝 Update Delivery:', { pickupIndex, deliveryIndex, field, value });
+
     const updated = [...pickups];
     (updated[pickupIndex].deliveries[deliveryIndex] as any)[field] = value;
     setPickups(updated);
@@ -170,12 +211,29 @@ export default function NewDispatchPage() {
       if (!pickup.laboratoryId) {
         newErrors[`pickup_${i}_lab`] = 'Selecciona un laboratorio';
       }
+
       if (pickup.deliveries.length === 0) {
         newErrors[`pickup_${i}_deliveries`] = 'Agrega al menos una entrega';
       }
+
       pickup.deliveries.forEach((delivery, j) => {
         if (!delivery.pharmacyId) {
           newErrors[`pickup_${i}_delivery_${j}_pharmacy`] = 'Selecciona una farmacia';
+        }
+
+        // Validación para delivery con custom pricing
+        if (delivery.isCustomPricing) {
+          if (!delivery.customPriceConcept || !delivery.customPriceConcept.trim()) {
+            newErrors[`pickup_${i}_delivery_${j}_concept`] = 'El concepto es requerido';
+          }
+          if (!delivery.customPriceAmount || delivery.customPriceAmount <= 0) {
+            newErrors[`pickup_${i}_delivery_${j}_customPrice`] = 'El precio debe ser mayor a 0';
+          }
+        } else {
+          // Validación normal - el merchandiseValue es requerido
+          if (!delivery.merchandiseValue || delivery.merchandiseValue <= 0) {
+            newErrors[`pickup_${i}_delivery_${j}_value`] = 'El valor es requerido';
+          }
         }
       });
     });
@@ -213,11 +271,16 @@ export default function NewDispatchPage() {
             deliveries: pickup.deliveries.map((d) => ({
               pharmacyId: d.pharmacyId,
               invoiceNumber: d.invoiceNumber,
-              merchandiseValue: Number(d.merchandiseValue) || 0,
               productType: d.productType,
               weight: Number(d.weight) || 0,
               packages: Number(d.packages) || 1,
               deliveryNotes: d.deliveryNotes,
+
+              // Campos de custom pricing a nivel de delivery
+              isCustomPricing: d.isCustomPricing || false,
+              customPriceConcept: d.isCustomPricing ? d.customPriceConcept : null,
+              customPriceAmount: d.isCustomPricing ? Number(d.customPriceAmount) : null,
+              merchandiseValue: d.isCustomPricing ? 0 : Number(d.merchandiseValue) || 0,
             })),
           })),
         }),
@@ -488,7 +551,14 @@ export default function NewDispatchPage() {
                           </button>
                         </div>
 
-                        <div className={styles.deliveryGrid}>
+                        {/* GRID DE 4 COLUMNAS - Farmacia, Nro Factura, Valor, Tipo */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr',
+                          gap: '1rem',
+                          marginBottom: '1rem',
+                        }}>
+                          {/* Columna 1: Farmacia */}
                           <FormField label="Farmacia" required error={errors[`pickup_${pickupIndex}_delivery_${deliveryIndex}_pharmacy`]}>
                             <Select
                               icon="💊"
@@ -499,33 +569,201 @@ export default function NewDispatchPage() {
                             />
                           </FormField>
 
-                          <FormField label="N° Factura">
+                          {/* Columna 2: Nro. Factura */}
+                          <FormField label="Nro. Factura">
                             <Input
                               icon="📄"
-                              value={delivery.invoiceNumber}
+                              type="text"
+                              value={delivery.invoiceNumber || ''}
                               onChange={(e) => updateDelivery(pickupIndex, deliveryIndex, 'invoiceNumber', e.target.value)}
                               placeholder="FAC-0000"
                             />
                           </FormField>
 
-                          <FormField label="Valor ($)">
+                          {/* Columna 3: Valor ($) - SIN BOTÓN AQUÍ */}
+                          <FormField
+                            label="Valor ($)"
+                            required={!delivery.isCustomPricing}
+                          >
                             <Input
                               icon="💰"
-                              type="number"
-                              value={delivery.merchandiseValue || ''}
-                              onChange={(e) => updateDelivery(pickupIndex, deliveryIndex, 'merchandiseValue', e.target.value)}
+                              type="text"
+                              inputMode="decimal"
+                              value={delivery.merchandiseValue === 0 || !delivery.merchandiseValue
+                                ? ''
+                                : String(delivery.merchandiseValue)
+                              }
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                console.log('💵 Valor input:', value);
+
+                                if (value === '') {
+                                  updateDelivery(pickupIndex, deliveryIndex, 'merchandiseValue', '');
+                                  return;
+                                }
+
+                                if (/^\d*\.?\d*$/.test(value)) {
+                                  updateDelivery(pickupIndex, deliveryIndex, 'merchandiseValue', value);
+                                }
+                              }}
                               placeholder="0"
+                              disabled={delivery.isCustomPricing}
+                              style={{
+                                opacity: delivery.isCustomPricing ? 0.6 : 1,
+                                cursor: delivery.isCustomPricing ? 'not-allowed' : 'text',
+                              }}
                             />
                           </FormField>
 
-                          <FormField label="Tipo">
+                          {/* Columna 4: Tipo de Producto */}
+                          <FormField label="Tipo de Producto">
                             <Select
                               options={productOptions}
-                              value={delivery.productType}
+                              value={delivery.productType || 'medicamentos'}
                               onChange={(e) => updateDelivery(pickupIndex, deliveryIndex, 'productType', e.target.value)}
                             />
                           </FormField>
                         </div>
+
+                        {/* BOTÓN PERSONALIZADO - EN SU PROPIA FILA */}
+                        <div style={{
+                          marginBottom: '1.5rem',
+                          display: 'flex',
+                          justifyContent: 'flex-start',
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              console.log('🔧 Click Personalizado - Delivery:', deliveryIndex);
+                              toggleCustomPricing(pickupIndex, deliveryIndex);
+                            }}
+                            style={{
+                              padding: '0.75rem 1.5rem',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.625rem',
+                              border: delivery.isCustomPricing
+                                ? '2px solid #f97316'
+                                : '2px solid #4b5563',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              backgroundColor: delivery.isCustomPricing
+                                ? '#f97316'
+                                : 'rgba(75, 85, 99, 0.2)',
+                              color: delivery.isCustomPricing ? 'white' : '#9ca3af',
+                              fontWeight: '500',
+                              fontSize: '0.875rem',
+                              minWidth: '160px',
+                              boxShadow: delivery.isCustomPricing
+                                ? '0 4px 12px rgba(249, 115, 22, 0.3)'
+                                : 'none',
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!delivery.isCustomPricing) {
+                                e.currentTarget.style.borderColor = '#6b7280';
+                                e.currentTarget.style.backgroundColor = 'rgba(107, 114, 128, 0.2)';
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (!delivery.isCustomPricing) {
+                                e.currentTarget.style.borderColor = '#4b5563';
+                                e.currentTarget.style.backgroundColor = 'rgba(75, 85, 99, 0.2)';
+                              }
+                            }}
+                          >
+                            <span style={{ fontSize: '1.25rem' }}>
+                              {delivery.isCustomPricing ? '✓' : '🔧'}
+                            </span>
+                            <span>{delivery.isCustomPricing ? 'Usando Precio Personalizado' : 'Usar Precio Personalizado'}</span>
+                          </button>
+                        </div>
+
+                        {/* CAMPOS PERSONALIZADOS - Cuando está activo */}
+                        {delivery.isCustomPricing && (
+                          <div style={{
+                            marginBottom: '1.5rem',
+                            padding: '1.25rem',
+                            borderLeft: '4px solid #f97316',
+                            background: 'linear-gradient(to right, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.02))',
+                            borderRadius: '0 8px 8px 0',
+                          }}>
+                            {/* Warning */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.75rem',
+                              padding: '0.875rem 1rem',
+                              marginBottom: '1.25rem',
+                              background: 'rgba(251, 191, 36, 0.15)',
+                              border: '1px solid rgba(251, 191, 36, 0.3)',
+                              borderRadius: '8px',
+                              color: '#fbbf24',
+                              fontSize: '0.875rem',
+                            }}>
+                              <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                              <span>
+                                Este precio <strong>NO</strong> usará el valor de mercadería ingresado arriba
+                              </span>
+                            </div>
+
+                            {/* Grid de 2 columnas para Concepto y Precio */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1.5fr 1fr',
+                              gap: '1.25rem',
+                            }}>
+                              {/* Concepto */}
+                              <FormField
+                                label="Concepto del Precio Personalizado"
+                                required
+                                error={errors?.[`pickup_${pickupIndex}_delivery_${deliveryIndex}_concept`]}
+                              >
+                                <Input
+                                  icon="📝"
+                                  type="text"
+                                  placeholder="Ej: Servicio express, Carga frágil"
+                                  value={delivery.customPriceConcept || ''}
+                                  onChange={(e) => {
+                                    console.log('📝 Concepto:', e.target.value);
+                                    updateDelivery(pickupIndex, deliveryIndex, 'customPriceConcept', e.target.value);
+                                  }}
+                                />
+                              </FormField>
+
+                              {/* Precio Personalizado */}
+                              <FormField
+                                label="Precio Personalizado ($)"
+                                required
+                                error={errors?.[`pickup_${pickupIndex}_delivery_${deliveryIndex}_customPrice`]}
+                              >
+                                <Input
+                                  icon="💵"
+                                  type="text"
+                                  inputMode="decimal"
+                                  placeholder="50000"
+                                  value={delivery.customPriceAmount === 0 || !delivery.customPriceAmount
+                                    ? ''
+                                    : String(delivery.customPriceAmount)
+                                  }
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    console.log('💵 Precio personalizado:', value);
+
+                                    if (value === '') {
+                                      updateDelivery(pickupIndex, deliveryIndex, 'customPriceAmount', '');
+                                      return;
+                                    }
+
+                                    if (/^\d*\.?\d*$/.test(value)) {
+                                      updateDelivery(pickupIndex, deliveryIndex, 'customPriceAmount', value);
+                                    }
+                                  }}
+                                />
+                              </FormField>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

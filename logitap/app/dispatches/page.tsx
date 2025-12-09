@@ -54,18 +54,24 @@ export default function DispatchesPage() {
 
   const loadDispatches = async () => {
     try {
+      console.log('🔍 Fetching dispatches...');
       const response = await fetch('/api/dispatches');
+      console.log('📡 Response status:', response.status);
       const data = await response.json();
-      setDispatches(data);
+      console.log('📦 Data received:', data);
+      console.log('📊 Is array?', Array.isArray(data));
+      console.log('📈 Data length:', Array.isArray(data) ? data.length : 'not an array');
+      setDispatches(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error('Error loading dispatches:', error);
+      console.error('❌ Error loading dispatches:', error);
+      setDispatches([]);
     } finally {
       setLoading(false);
     }
   };
 
   const filterDispatches = () => {
-    let filtered = [...dispatches];
+    let filtered = Array.isArray(dispatches) ? [...dispatches] : [];
 
     // Filter by search
     if (searchQuery) {
@@ -312,7 +318,7 @@ export default function DispatchesPage() {
                       Ver
                     </Button>
                   </Link>
-                  <Link href={`/dispatches/${dispatch.id}/edit`} className={styles.actionLink} onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/dispatches/${dispatch.id}`} className={styles.actionLink} onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" icon={<span>✏️</span>} fullWidth>
                       Editar
                     </Button>

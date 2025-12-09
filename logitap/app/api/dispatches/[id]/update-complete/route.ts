@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateDispatchCost } from "@/lib/pricing";
+import { calculatePickupCost } from "@/lib/pricing";
 
 export async function PUT(
   request: Request,
@@ -64,12 +64,17 @@ export async function PUT(
 
       // 3. Crear nuevos pickups con sus deliveries
       for (const pickupData of body.pickups) {
-        const pickupMerchandiseValue = pickupData.deliveries.reduce(
+        const pickupMerchandiseValue = pickupData.deliveries?.reduce(
           (sum: number, delivery: any) => sum + delivery.merchandiseValue,
           0
-        );
+        ) || 0;
 
-        const pricing = calculateDispatchCost(pickupMerchandiseValue);
+        // Calculate pricing using percentage method
+        const pricing = calculatePickupCost({
+          pricingType: 'percentage',
+          merchandiseValue: pickupMerchandiseValue,
+          customPrice: undefined
+        });
 
         const pickup = await tx.pickup.create({
           data: {
@@ -80,8 +85,6 @@ export async function PUT(
             merchandiseValue: pickupMerchandiseValue,
             dispatchCost: pricing.cost,
             percentageApplied: pricing.percentage,
-            pricingType: pickupData.pricingType || "percentage",
-            customPrice: pickupData.customPrice,
             pickupNotes: pickupData.pickupNotes,
           },
         });
@@ -95,13 +98,18 @@ export async function PUT(
               pickupId: pickup.id,
               pharmacyId: deliveryData.pharmacyId,
               invoiceNumber: deliveryData.invoiceNumber,
-              merchandiseValue: deliveryData.merchandiseValue,
+              merchandiseValue: deliveryData.isCustomPricing ? 0 : deliveryData.merchandiseValue,
               productType: deliveryData.productType || "medicamentos",
               weight: deliveryData.weight,
               packages: deliveryData.packages,
               orderInRoute: i,
               status: "pending",
               deliveryNotes: deliveryData.deliveryNotes,
+
+              // Custom pricing fields
+              isCustomPricing: deliveryData.isCustomPricing || false,
+              customPriceConcept: deliveryData.customPriceConcept || null,
+              customPriceAmount: deliveryData.customPriceAmount || null,
             },
           });
         }

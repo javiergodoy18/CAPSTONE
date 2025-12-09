@@ -8,6 +8,7 @@ interface User {
   email: string;
   name: string;
   role: 'ADMIN' | 'DRIVER';
+  profileImage?: string | null;
   driver?: {
     id: string;
     name: string;

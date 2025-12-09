@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(test:*)",
+      "Bash(cp:*)",
+      "Bash(cat:*)",
+      "Bash(git fetch:*)",
+      "Bash(git reset:*)",
+      "Bash(if [ -d \"node_modules\" ])",
+      "Bash(then rm -rf node_modules)",
+      "Bash(else echo \"No habia node_modules en logitap\")",
+      "Bash(fi)",
+      "Bash(if [ -f \"package-lock.json\" ])",
+      "Bash(then rm package-lock.json)",
+      "Bash(else echo \"No habia package-lock.json\")",
+      "Bash(if [ -d \".next\" ])",
+      "Bash(then rm -rf .next)",
+      "Bash(else echo \"No habia .next\")",
+      "Bash(npm install)",
+      "Bash(else echo \"No había .next\")",
+      "Bash(curl:*)",
+      "Bash(ping:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm run dev:*)",
+      "Bash(Get-Process -Name node -ErrorAction SilentlyContinue)",
+      "Bash(Stop-Process -Force)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma:*)",
+      "Bash(powershell \"Get-Process -Name node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(npx tsc:*)",
+      "Bash(powershell:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

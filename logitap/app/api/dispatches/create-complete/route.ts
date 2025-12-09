@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { calculateDispatchCost } from "@/lib/pricing";
+import { calculatePickupCost } from "@/lib/pricing";
 
 export async function POST(request: Request) {
   try {
@@ -45,13 +45,17 @@ export async function POST(request: Request) {
       // 2. Crear cada pickup con sus deliveries
       for (const pickupData of body.pickups) {
         // Calcular valor total de las entregas de este pickup
-        const pickupMerchandiseValue = pickupData.deliveries.reduce(
+        const pickupMerchandiseValue = pickupData.deliveries?.reduce(
           (sum: number, delivery: any) => sum + delivery.merchandiseValue,
           0
-        );
+        ) || 0;
 
-        // Calcular costo del pickup
-        const pricing = calculateDispatchCost(pickupMerchandiseValue);
+        // Calcular costo del pickup usando método de porcentaje
+        const pricing = calculatePickupCost({
+          pricingType: 'percentage',
+          merchandiseValue: pickupMerchandiseValue,
+          customPrice: undefined
+        });
 
         // Crear pickup
         const pickup = await tx.pickup.create({
@@ -63,8 +67,6 @@ export async function POST(request: Request) {
             merchandiseValue: pickupMerchandiseValue,
             dispatchCost: pricing.cost,
             percentageApplied: pricing.percentage,
-            pricingType: pickupData.pricingType || 'percentage',
-            customPrice: pickupData.customPrice,
             pickupNotes: pickupData.pickupNotes,
           },
         });
@@ -79,13 +81,18 @@ export async function POST(request: Request) {
               pickupId: pickup.id,
               pharmacyId: deliveryData.pharmacyId,
               invoiceNumber: deliveryData.invoiceNumber,
-              merchandiseValue: deliveryData.merchandiseValue,
+              merchandiseValue: deliveryData.isCustomPricing ? 0 : deliveryData.merchandiseValue,
               productType: deliveryData.productType || 'medicamentos',
               weight: deliveryData.weight,
               packages: deliveryData.packages,
               orderInRoute: i, // Orden temporal
               status: 'pending',
               deliveryNotes: deliveryData.deliveryNotes,
+
+              // Custom pricing fields
+              isCustomPricing: deliveryData.isCustomPricing || false,
+              customPriceConcept: deliveryData.customPriceConcept || null,
+              customPriceAmount: deliveryData.customPriceAmount || null,
             },
           });
         }

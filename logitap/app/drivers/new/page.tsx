@@ -26,14 +26,39 @@ export default function NewDriverPage() {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
+        // Mostrar credenciales generadas
+        if (data.credentials) {
+          alert(
+            `✅ Conductor creado exitosamente\n\n` +
+            `📧 Email: ${data.credentials.email}\n` +
+            `🔑 Contraseña: ${data.credentials.password}\n\n` +
+            `⚠️ IMPORTANTE: Guarda estas credenciales.\n` +
+            `El conductor debe cambiar su contraseña al primer login.`
+          );
+
+          // Opcional: Copiar al portapapeles
+          if (navigator.clipboard) {
+            const credentials =
+              `Credenciales de acceso LOGITAP\n` +
+              `Email: ${data.credentials.email}\n` +
+              `Contraseña: ${data.credentials.password}\n`;
+            navigator.clipboard.writeText(credentials);
+            console.log('📋 Credenciales copiadas al portapapeles');
+          }
+        } else {
+          alert('✅ Conductor creado exitosamente');
+        }
+
         router.push('/drivers');
       } else {
-        alert('Error al crear conductor');
+        alert(`❌ Error: ${data.error || 'Error al crear conductor'}`);
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('Error al crear conductor');
+      alert('❌ Error al crear conductor');
     } finally {
       setLoading(false);
     }

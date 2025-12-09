@@ -62,8 +62,6 @@ export async function PUT(
         pickupDate: body.pickupDate ? new Date(body.pickupDate) : undefined,
         actualPickupTime: body.actualPickupTime ? new Date(body.actualPickupTime) : undefined,
         merchandiseValue: body.merchandiseValue,
-        pricingType: body.pricingType,
-        customPrice: body.customPrice,
         pickupNotes: body.pickupNotes,
       },
       include: {
@@ -76,8 +74,8 @@ export async function PUT(
       },
     });
 
-    // Recalcular costo si cambió el valor de mercancía y es por porcentaje
-    if (pickup.pricingType === 'percentage' && pickup.merchandiseValue > 0) {
+    // Recalcular costo si cambió el valor de mercancía (siempre usa porcentaje)
+    if (pickup.merchandiseValue > 0) {
       const pricing = calculateDispatchCost(pickup.merchandiseValue);
 
       await prisma.pickup.update({

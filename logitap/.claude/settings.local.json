@@ -13,7 +13,14 @@
       "Bash(npm run seed:users:*)",
       "Bash(npm run create:admin:*)",
       "Bash(rsync:*)",
-      "Bash(tar:*)"
+      "Bash(tar:*)",
+      "Bash(git checkout:*)",
+      "Bash(curl:*)",
+      "Bash(rmdir:*)",
+      "Bash(cat:*)",
+      "Bash(node test-db-connection.js:*)",
+      "Bash(psql:*)",
+      "Bash(where.exe psql)"
     ],
     "deny": [],
     "ask": []

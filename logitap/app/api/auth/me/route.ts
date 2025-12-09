@@ -29,6 +29,7 @@ export async function GET() {
         email: session.user.email,
         name: session.user.name,
         role: session.user.role,
+        profileImage: (session.user as any).profileImage || null,
         driver: session.user.driver,
       },
     });

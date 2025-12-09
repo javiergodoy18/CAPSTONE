@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Button from './Button';
@@ -9,9 +9,11 @@ import styles from './Navbar.module.css';
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout, isAdmin, isDriver } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,6 +39,10 @@ export default function Navbar() {
     { href: '/laboratories', label: 'Laboratorios', icon: '🏢' },
     { href: '/pharmacies', label: 'Farmacias', icon: '💊' },
   ];
+
+  // Datos del usuario para mostrar
+  const profileImage = (user as any)?.profileImage || null;
+  const displayName = user?.name || 'Usuario';
 
   return (
     <nav className={`${styles.navbar} ${scrolled ? styles.scrolled : ''}`}>
@@ -69,28 +75,272 @@ export default function Navbar() {
           ))}
         </div>
 
-        {/* User Menu */}
+        {/* User Menu with Dropdown */}
         {user && (
-          <div className={styles.userMenu}>
-            <div className={styles.userInfo}>
-              <div className={styles.userAvatar}>
-                {user.role === 'ADMIN' ? '👨‍💼' : '🚗'}
-              </div>
-              <div className={styles.userDetails}>
-                <div className={styles.userName}>{user.name}</div>
-                <div className={styles.userRole}>
-                  {user.role === 'ADMIN' ? 'Administrador' : 'Conductor'}
-                </div>
-              </div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={<span>🚪</span>}
-              onClick={logout}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.5rem 1rem',
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: '8px',
+                color: '#38bdf8',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.2)';
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.3)';
+              }}
             >
-              Salir
-            </Button>
+              {/* Avatar del usuario con imagen real */}
+              <div style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '50%',
+                background: profileImage
+                  ? `url(${profileImage}) center/cover`
+                  : 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.5rem',
+                flexShrink: 0,
+                border: '2px solid rgba(56, 189, 248, 0.3)',
+                boxShadow: '0 2px 8px rgba(56, 189, 248, 0.2)',
+              }}>
+                {!profileImage && '👤'}
+              </div>
+
+              {/* Info del usuario - MEJORADA */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'flex-start',
+                lineHeight: '1.3',
+                flex: 1,
+                minWidth: 0,
+              }}>
+                {/* Nombre del usuario */}
+                <span style={{
+                  fontSize: '0.9375rem',
+                  fontWeight: '600',
+                  color: '#f0f9ff',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  width: '100%',
+                  letterSpacing: '0.01em',
+                }}>
+                  {displayName}
+                </span>
+
+                {/* Rol debajo del nombre */}
+                <span style={{
+                  fontSize: '0.6875rem',
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  fontWeight: '500',
+                  marginTop: '1px',
+                }}>
+                  {user.role || 'ADMIN'}
+                </span>
+              </div>
+
+              {/* Ícono dropdown */}
+              <div style={{
+                fontSize: '0.75rem',
+                color: '#64748b',
+                transition: 'transform 0.2s',
+                transform: isDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              }}>
+                ▼
+              </div>
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <>
+                {/* Overlay para cerrar al hacer click afuera */}
+                <div
+                  onClick={() => setIsDropdownOpen(false)}
+                  style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 40,
+                  }}
+                />
+
+                {/* Menu */}
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 0.5rem)',
+                  right: 0,
+                  minWidth: '220px',
+                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)',
+                  zIndex: 50,
+                  overflow: 'hidden',
+                  animation: 'slideDown 0.2s ease-out',
+                }}>
+                  {/* Header del dropdown */}
+                  <div style={{
+                    padding: '1.25rem',
+                    borderBottom: '1px solid rgba(56, 189, 248, 0.1)',
+                    background: 'rgba(56, 189, 248, 0.05)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                  }}>
+                    {/* Avatar grande en el dropdown */}
+                    <div style={{
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '50%',
+                      background: profileImage
+                        ? `url(${profileImage}) center/cover`
+                        : 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '2rem',
+                      flexShrink: 0,
+                      border: '2px solid rgba(56, 189, 248, 0.3)',
+                    }}>
+                      {!profileImage && '👤'}
+                    </div>
+
+                    {/* Info del usuario */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#94a3b8',
+                        marginBottom: '0.25rem',
+                      }}>
+                        Conectado como
+                      </div>
+                      <div style={{
+                        fontSize: '1.0625rem',
+                        fontWeight: '600',
+                        color: '#f0f9ff',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}>
+                        {displayName}
+                      </div>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#38bdf8',
+                        marginTop: '0.25rem',
+                        textTransform: 'uppercase',
+                        fontWeight: '500',
+                        letterSpacing: '0.05em',
+                      }}>
+                        {user.role === 'ADMIN' ? 'ADMINISTRADOR' : 'CONDUCTOR'}
+                      </div>
+                      {user.email && (
+                        <div style={{
+                          fontSize: '0.6875rem',
+                          color: '#64748b',
+                          marginTop: '0.375rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}>
+                          {user.email}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Opciones del menú */}
+                  <div style={{ padding: '0.5rem' }}>
+                    {/* Ver Perfil */}
+                    <button
+                      onClick={() => {
+                        router.push('/profile');
+                        setIsDropdownOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.75rem 1rem',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#cbd5e1',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        fontSize: '0.875rem',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)';
+                        e.currentTarget.style.color = '#38bdf8';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#cbd5e1';
+                      }}
+                    >
+                      <span style={{ fontSize: '1.25rem' }}>👤</span>
+                      <span>Ver Perfil</span>
+                    </button>
+
+                    {/* Salir */}
+                    <button
+                      onClick={() => {
+                        logout();
+                        setIsDropdownOpen(false);
+                      }}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        padding: '0.75rem 1rem',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: '8px',
+                        color: '#cbd5e1',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        fontSize: '0.875rem',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                        e.currentTarget.style.color = '#ef4444';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#cbd5e1';
+                      }}
+                    >
+                      <span style={{ fontSize: '1.25rem' }}>🚪</span>
+                      <span>Cerrar Sesión</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -158,6 +408,20 @@ export default function Navbar() {
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      {/* CSS para animación del dropdown */}
+      <style jsx>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </nav>
   );
 }

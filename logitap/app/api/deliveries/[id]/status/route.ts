@@ -36,12 +36,30 @@ export async function PATCH(
         pickup: {
           include: {
             laboratory: true,
+            dispatch: {
+              include: {
+                deliveries: true,
+              },
+            },
           },
         },
       },
     });
 
-    return NextResponse.json(delivery);
+    // Verificar si todas las deliveries del dispatch están completas
+    const dispatch = delivery.pickup.dispatch;
+    const allDeliveries = dispatch.deliveries;
+    const allDeliveriesComplete = allDeliveries.every(
+      d => d.status === 'delivered' || d.status === 'failed'
+    );
+
+    return NextResponse.json({
+      delivery,
+      allDeliveriesComplete,
+      dispatchId: dispatch.id,
+      completedCount: allDeliveries.filter(d => d.status === 'delivered' || d.status === 'failed').length,
+      totalCount: allDeliveries.length,
+    });
   } catch (error) {
     console.error("Error updating delivery status:", error);
     return NextResponse.json(

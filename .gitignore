@@ -10,9 +10,17 @@ logitap/dist/
 logitap/build/
 logitap/.turbo/
 logitap/.vercel/
+logitap/nul
 
 # General
 .DS_Store
 *.log
 .env
 .env.local
+
+# Windows reserved filenames (corrupted files)
+nul
+*/nul
+
+# Node modules (all directories)
+**/node_modules

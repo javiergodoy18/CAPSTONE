@@ -39,24 +39,48 @@ export default function VehiclesPage() {
 
   const loadVehicles = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/vehicles');
-      const data = await response.json();
-      setVehicles(data);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Vehicles loaded:', data);
+
+        // ✅ Validar que data sea un array
+        if (Array.isArray(data)) {
+          setVehicles(data);
+        } else {
+          console.error('API no retornó un array:', data);
+          setVehicles([]);
+        }
+      } else {
+        console.error('Error loading vehicles:', response.status);
+        setVehicles([]);
+      }
     } catch (error) {
-      console.error('Error loading vehicles:', error);
+      console.error('Error:', error);
+      setVehicles([]);
     } finally {
       setLoading(false);
     }
   };
 
   const filterVehicles = () => {
+    // ✅ Validar que vehicles sea un array
+    if (!Array.isArray(vehicles)) {
+      console.warn('vehicles no es un array:', vehicles);
+      setFilteredVehicles([]);
+      return;
+    }
+
     let filtered = [...vehicles];
 
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter((vehicle) =>
-        vehicle.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.model.toLowerCase().includes(searchQuery.toLowerCase())
+        vehicle.plate?.toLowerCase().includes(query) ||
+        vehicle.brand?.toLowerCase().includes(query) ||
+        vehicle.model?.toLowerCase().includes(query)
       );
     }
 
