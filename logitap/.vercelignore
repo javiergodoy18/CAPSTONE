@@ -9,11 +9,4 @@ node_modules
 coverage
 test-results
 playwright-report
-prisma/migrations
-*.sql
-test-*.js
-setup-*.bat
-setup-*.md
-SETUP-*.md
-CUSTOM-*.md
-*-OLD-BACKUP.*
+.git
