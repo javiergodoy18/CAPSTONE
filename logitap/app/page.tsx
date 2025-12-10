@@ -200,34 +200,43 @@ export default function Dashboard() {
       background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
       paddingTop: '80px',
     }}>
-      <div style={{ maxWidth: '1600px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(1rem, 3vw, 2rem)' }}>
         {/* Hero */}
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={{
-            fontSize: '3rem',
+            fontSize: 'clamp(1.75rem, 5vw, 2.5rem)',
             fontWeight: '700',
-            background: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
+            color: '#f0f9ff',
             marginBottom: '0.5rem',
           }}>
-            Sistema de Gestión
+            👋 Hola, {user.name.split(' ')[0]}
           </h1>
-          <p style={{ fontSize: '1.5rem', color: '#94a3b8' }}>
-            Logística en Tiempo Real
+          <p style={{
+            fontSize: 'clamp(0.9rem, 2.5vw, 1.125rem)',
+            color: '#94a3b8'
+          }}>
+            {new Date().toLocaleDateString('es-CL', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
           </p>
         </div>
 
         {/* Selector de Período */}
         <div style={{
           display: 'flex',
-          gap: '0.75rem',
-          marginBottom: '1.5rem',
-          padding: '0.5rem',
+          gap: '0.5rem',
+          marginBottom: '2rem',
           background: 'rgba(30, 41, 59, 0.5)',
+          padding: '0.5rem',
           borderRadius: '12px',
           border: '1px solid rgba(56, 189, 248, 0.2)',
           width: 'fit-content',
+          maxWidth: '100%',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
           position: 'relative',
           boxShadow: loadingKPIs ? '0 0 20px rgba(56, 189, 248, 0.3)' : 'none',
           transition: 'box-shadow 0.3s ease',
@@ -245,24 +254,24 @@ export default function Dashboard() {
             }} />
           )}
           {[
-            { value: '7d', label: 'Últimos 7 días' },
-            { value: '30d', label: 'Últimos 30 días' },
-            { value: '90d', label: 'Últimos 90 días' },
-            { value: 'all', label: 'Todo el tiempo' },
+            { value: '7d', label: '7 días' },
+            { value: '30d', label: '30 días' },
+            { value: '90d', label: '90 días' },
+            { value: 'all', label: 'Todo' },
           ].map((option) => (
             <button
               key={option.value}
               onClick={() => setSelectedPeriod(option.value as any)}
               disabled={loadingKPIs}
               style={{
-                padding: '0.75rem 1.5rem',
+                padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 3vw, 1.5rem)',
                 background: selectedPeriod === option.value
                   ? 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)'
                   : 'transparent',
                 border: 'none',
                 borderRadius: '8px',
                 color: selectedPeriod === option.value ? 'white' : '#94a3b8',
-                fontSize: '0.875rem',
+                fontSize: 'clamp(0.75rem, 2vw, 0.875rem)',
                 fontWeight: '600',
                 cursor: loadingKPIs ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -272,6 +281,8 @@ export default function Dashboard() {
                 opacity: loadingKPIs ? 0.5 : 1,
                 position: 'relative',
                 overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                flex: '0 0 auto',
               }}
               onMouseEnter={(e) => {
                 if (selectedPeriod !== option.value && !loadingKPIs) {
@@ -321,19 +332,25 @@ export default function Dashboard() {
         </div>
 
         {/* Botones */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2.5rem' }}>
+        <div style={{
+          display: 'flex',
+          gap: 'clamp(0.5rem, 2vw, 1rem)',
+          marginBottom: '2.5rem',
+          flexWrap: 'wrap',
+        }}>
           <button
             onClick={() => router.push('/dispatches/new')}
             style={{
-              padding: '1rem 2rem',
+              padding: 'clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem)',
               background: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)',
               border: 'none',
               borderRadius: '12px',
               color: 'white',
-              fontSize: '1rem',
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)',
               fontWeight: '600',
               cursor: 'pointer',
               boxShadow: '0 8px 24px rgba(56, 189, 248, 0.3)',
+              whiteSpace: 'nowrap',
             }}
           >
             + Nuevo Viaje
@@ -341,26 +358,27 @@ export default function Dashboard() {
           <button
             onClick={() => router.push('/dispatches')}
             style={{
-              padding: '1rem 2rem',
+              padding: 'clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem)',
               background: 'transparent',
               border: '2px solid rgba(56, 189, 248, 0.5)',
               borderRadius: '12px',
               color: '#38bdf8',
-              fontSize: '1rem',
+              fontSize: 'clamp(0.875rem, 2vw, 1rem)',
               fontWeight: '600',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
           >
-            Ver Todos los Viajes →
+            Ver Viajes →
           </button>
         </div>
 
         {/* 5 KPIs */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
         }}>
           <KPICard
             icon="✓"
@@ -410,8 +428,8 @@ export default function Dashboard() {
         {/* Rankings */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '1.5rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))',
+          gap: '2rem',
           marginBottom: '2rem',
         }}>
           <RankingCard title="🏆 Top 5 Laboratorios" items={kpis.topLaboratories} />
@@ -433,88 +451,65 @@ function KPICard({ icon, title, value, subtitle, color, badge, badgeColor }: any
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       style={{
-        background: isHovered
-          ? 'rgba(30, 41, 59, 0.8)'
-          : 'rgba(30, 41, 59, 0.5)',
-        border: `1px solid ${color}${isHovered ? '80' : '40'}`,
+        background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+        border: `2px solid ${color}40`,
         borderRadius: '16px',
-        padding: '1.5rem',
+        padding: 'clamp(1rem, 3vw, 2rem)',
         position: 'relative',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: isHovered ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
-        boxShadow: isHovered
-          ? `0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px ${color}40`
-          : '0 4px 6px rgba(0, 0, 0, 0.1)',
-        cursor: 'pointer',
         overflow: 'hidden',
+        transition: 'all 0.3s',
       }}
     >
-      {/* Efecto de brillo animado */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: isHovered ? '0%' : '-100%',
-        width: '100%',
-        height: '100%',
-        background: `linear-gradient(90deg, transparent, ${color}15, transparent)`,
-        transition: 'left 0.6s ease',
-        pointerEvents: 'none',
-      }} />
-
       {badge && (
         <div style={{
           position: 'absolute',
           top: '1rem',
           right: '1rem',
-          padding: '0.25rem 0.75rem',
-          background: `${badgeColor}30`,
-          border: `1px solid ${badgeColor}`,
-          borderRadius: '6px',
-          fontSize: '0.65rem',
-          fontWeight: '700',
-          color: badgeColor,
-          transition: 'all 0.3s ease',
-          transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+          padding: '0.4rem 0.8rem',
+          background: badgeColor,
+          borderRadius: '20px',
+          fontSize: 'clamp(0.6rem, 1.5vw, 0.7rem)',
+          fontWeight: '800',
+          color: 'white',
         }}>
           {badge}
         </div>
       )}
 
       <div style={{
-        fontSize: '2.5rem',
+        fontSize: 'clamp(2rem, 5vw, 3.5rem)',
         marginBottom: '1rem',
-        transition: 'transform 0.3s ease',
-        transform: isHovered ? 'scale(1.1) rotate(5deg)' : 'scale(1) rotate(0deg)',
       }}>
         {icon}
       </div>
 
       <div style={{
-        fontSize: '0.7rem',
+        fontSize: 'clamp(0.65rem, 1.5vw, 0.75rem)',
         color: '#64748b',
-        fontWeight: '600',
+        fontWeight: '700',
         textTransform: 'uppercase',
         marginBottom: '0.75rem',
-        letterSpacing: '0.05em',
       }}>
         {title}
       </div>
 
       <div style={{
-        fontSize: '2.5rem',
-        fontWeight: '700',
-        color,
+        fontSize: 'clamp(1.5rem, 5vw, 3rem)',
+        fontWeight: '800',
+        background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`,
+        WebkitBackgroundClip: 'text',
+        WebkitTextFillColor: 'transparent',
         marginBottom: '0.5rem',
-        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-        textShadow: isHovered ? `0 0 20px ${color}80` : 'none',
+        lineHeight: 1,
+        wordBreak: 'break-word',
       }}>
         {value}
       </div>
 
       <div style={{
-        fontSize: '0.875rem',
+        fontSize: 'clamp(0.75rem, 2vw, 0.9rem)',
         color: '#94a3b8',
-        transition: 'color 0.3s ease',
+        fontWeight: '500',
       }}>
         {subtitle}
       </div>
@@ -524,50 +519,76 @@ function KPICard({ icon, title, value, subtitle, color, badge, badgeColor }: any
 
 function RankingCard({ title, items }: any) {
   const colors = ['#fbbf24', '#94a3b8', '#cd7f32', '#38bdf8', '#8b5cf6'];
+  const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+
   return (
     <div style={{
-      background: 'rgba(30, 41, 59, 0.5)',
+      background: 'rgba(15, 23, 42, 0.6)',
+      backdropFilter: 'blur(20px)',
       border: '1px solid rgba(56, 189, 248, 0.2)',
-      borderRadius: '16px',
-      padding: '2rem',
+      borderRadius: '24px',
+      padding: 'clamp(1.5rem, 3vw, 2.5rem)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     }}>
-      <h3 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#f0f9ff', marginBottom: '1.5rem' }}>
+      <h3 style={{
+        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+        fontWeight: '700',
+        color: '#f0f9ff',
+        marginBottom: '1.5rem',
+      }}>
         {title}
       </h3>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(0.75rem, 2vw, 1.25rem)' }}>
         {items.map((item: any, i: number) => (
           <div key={i} style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '1rem',
-            padding: '1rem',
-            background: 'rgba(15, 23, 42, 0.5)',
-            borderRadius: '12px',
+            gap: 'clamp(0.75rem, 2vw, 1.5rem)',
+            padding: 'clamp(0.75rem, 2vw, 1.5rem)',
+            background: `linear-gradient(135deg, ${colors[i]}15 0%, ${colors[i]}05 100%)`,
+            border: `2px solid ${colors[i]}40`,
+            borderRadius: '16px',
           }}>
             <div style={{
-              width: '40px',
-              height: '40px',
-              borderRadius: '50%',
-              background: colors[i],
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.125rem',
-              fontWeight: '700',
-              color: 'white',
+              fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
+              minWidth: 'clamp(40px, 10vw, 60px)',
+              textAlign: 'center',
             }}>
-              {i + 1}
+              {medals[i]}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '0.9375rem', fontWeight: '600', color: '#f0f9ff' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: 'clamp(0.9rem, 2.5vw, 1.125rem)',
+                fontWeight: '700',
+                color: '#f0f9ff',
+                marginBottom: '0.25rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
                 {item.name}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                {item.trips} viajes
+              <div style={{
+                fontSize: 'clamp(0.7rem, 2vw, 0.875rem)',
+                color: '#64748b',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+              }}>
+                <span>📦 {item.trips}</span>
+                <span>💵 ${(item.avgPerTrip || 0).toLocaleString('es-CL')}</span>
               </div>
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#22c55e' }}>
-              ${(item.revenue / 1000).toFixed(0)}K
+            <div style={{
+              fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
+              fontWeight: '800',
+              background: `linear-gradient(135deg, ${colors[i]} 0%, ${colors[i]}cc 100%)`,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textAlign: 'right',
+              minWidth: 'fit-content',
+            }}>
+              ${(item.revenue / 1000).toFixed(1)}K
             </div>
           </div>
         ))}
@@ -582,15 +603,16 @@ function TrendChart({ data }: any) {
 
   return (
     <div style={{
-      background: 'rgba(30, 41, 59, 0.5)',
+      background: 'rgba(15, 23, 42, 0.6)',
+      backdropFilter: 'blur(20px)',
       border: '1px solid rgba(56, 189, 248, 0.2)',
-      borderRadius: '16px',
-      padding: '2rem',
-      transition: 'all 0.3s ease',
+      borderRadius: '24px',
+      padding: 'clamp(1.5rem, 3vw, 2.5rem)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     }}>
       <h3 style={{
-        fontSize: '1.25rem',
-        fontWeight: '600',
+        fontSize: 'clamp(1rem, 3vw, 1.25rem)',
+        fontWeight: '700',
         color: '#f0f9ff',
         marginBottom: '1.5rem',
         display: 'flex',
@@ -606,7 +628,13 @@ function TrendChart({ data }: any) {
         Últimos 7 Días
       </h3>
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem', height: '200px', position: 'relative' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        gap: 'clamp(0.5rem, 2vw, 1.5rem)',
+        height: 'clamp(200px, 40vw, 280px)',
+        position: 'relative',
+      }}>
         {data.map((day: any, i: number) => {
           const height = (day.count / max) * 100;
           const isHovered = hoveredIndex === i;
